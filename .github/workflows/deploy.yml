@@ -93,7 +93,7 @@ jobs:
         if: success()
 
       - name: Upload Web Artifact
-        uses: actions/upload-pages-artifact@v4
+        uses: actions/upload-pages-artifact@v5
         if: success()
         with:
           path: build/web
