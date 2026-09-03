@@ -39,6 +39,9 @@ jobs:
           echo "SUPABASE_URL=$SUPABASE_URL" >> .env
           echo "SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY" >> .env
           echo "RAZORPAY_KEY_ID=$RAZORPAY_KEY_ID" >> .env
+          # pubspec registers assets/env — bundle a copy for the web/asset build.
+          mkdir -p assets
+          cp .env assets/env
 
       - name: Install dependencies
         run: flutter pub get
