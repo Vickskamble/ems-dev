@@ -1,0 +1,831 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:intl/intl.dart';
+import '../../core/config/app_config.dart';
+import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_spacing.dart';
+import '../../core/utils/app_logger.dart';
+import '../../core/widgets/app_card.dart';
+import '../../data/models/energy_log_model.dart';
+import '../../data/repositories/energy_repository.dart';
+import '../../domain/entities/energy_log_entity.dart';
+import '../bloc/energy_bloc.dart';
+import '../bloc/energy_event.dart';
+
+class ReadingHistoryPage extends StatefulWidget {
+  const ReadingHistoryPage({super.key});
+
+  @override
+  State<ReadingHistoryPage> createState() => _ReadingHistoryPageState();
+}
+
+class _ReadingHistoryPageState extends State<ReadingHistoryPage> {
+  List<EnergyLogEntity> _allLogs = [];
+  String? _selectedMeter;
+  int? _selectedYear;
+  int? _selectedMonth;
+  int? _selectedDay;
+  int _visibleCount = 20;
+  static const _pageSize = 20;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLogs();
+  }
+
+  String? _loadError;
+
+  Future<void> _loadLogs() async {
+    try {
+      final logs = await context.read<EnergyRepository>().getAllLogs();
+      if (mounted) {
+        final sorted = List<EnergyLogEntity>.from(logs)
+          ..sort((a, b) => b.loggedAt.compareTo(a.loggedAt));
+        setState(() {
+          _allLogs = sorted;
+          _loadError = null;
+          final now = DateTime.now();
+          _selectedYear ??= now.year;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _loadError = e.toString());
+    }
+  }
+
+  List<int> get _availableYears {
+    final years = <int>{DateTime.now().year};
+    for (final l in _filteredByMeter) {
+      years.add(l.loggedAt.year);
+    }
+    final list = years.toList()..sort((a, b) => b.compareTo(a));
+    return list;
+  }
+
+  List<EnergyLogEntity> get _filteredByMeter {
+    if (_selectedMeter == null) return _allLogs;
+    return _allLogs.where((l) => l.meterName == _selectedMeter).toList();
+  }
+
+  List<String> get _availableMeters {
+    final meters = <String>{};
+    for (final l in _allLogs) {
+      meters.add(l.meterName);
+    }
+    return meters.toList()..sort();
+  }
+
+  List<EnergyLogEntity> get _filteredByYear {
+    if (_selectedYear == null) return _filteredByMeter;
+    return _filteredByMeter.where((l) => l.loggedAt.year == _selectedYear).toList();
+  }
+
+  List<int> get _availableMonths {
+    final months = <int>{};
+    for (final l in _filteredByYear) {
+      months.add(l.loggedAt.month);
+    }
+    return months.toList()..sort((a, b) => b.compareTo(a));
+  }
+
+  List<EnergyLogEntity> get _filteredByMonth {
+    var logs = _filteredByYear;
+    if (_selectedMonth != null) {
+      logs = logs.where((l) => l.loggedAt.month == _selectedMonth).toList();
+    }
+    return logs;
+  }
+
+  List<int> get _availableDays {
+    final days = <int>{};
+    for (final l in _filteredByMonth) {
+      days.add(l.loggedAt.day);
+    }
+    return days.toList()..sort((a, b) => b.compareTo(a));
+  }
+
+  List<EnergyLogEntity> get _filtered {
+    var logs = _filteredByMonth;
+    if (_selectedDay != null) {
+      logs = logs.where((l) => l.loggedAt.day == _selectedDay).toList();
+    }
+    return logs;
+  }
+
+  String _fmtDate(DateTime dt) => DateFormat('dd MMM yyyy, HH:mm').format(dt);
+
+  @override
+  Widget build(BuildContext context) {
+    final filtered = _filtered;
+    final visible = filtered.take(_visibleCount).toList();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final dim = isDark ? AppColors.textDarkSecondary : AppColors.textSecondary;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Reading History'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(AppSpacing.page),
+        children: [
+          _buildFilterRow(),
+          const SizedBox(height: 16),
+          if (_loadError != null)
+            AppCard(
+              child: SizedBox(
+                height: 120,
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.error_outline, size: 32, color: Colors.red.shade400),
+                      const SizedBox(height: 8),
+                      Text('Failed to load readings', style: TextStyle(fontSize: 13, color: Colors.red.shade400)),
+                      const SizedBox(height: 4),
+                      TextButton(onPressed: _loadLogs, child: const Text('Retry')),
+                    ],
+                  ),
+                ),
+              ),
+            )
+          else if (_allLogs.isEmpty)
+            AppCard(
+              child: SizedBox(
+                height: 120,
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.history, size: 32, color: dim),
+                      const SizedBox(height: 8),
+                      Text('No readings found', style: TextStyle(fontSize: 13, color: dim)),
+                    ],
+                  ),
+                ),
+              ),
+            )
+          else ...[
+            Text(
+              '${filtered.length} reading(s) — tap to edit',
+              style: TextStyle(fontSize: 12, color: dim),
+            ),
+            const SizedBox(height: 8),
+            for (final log in visible) _buildReadingCard(log),
+            if (_visibleCount < filtered.length)
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: Center(
+                  child: TextButton.icon(
+                    onPressed: () => setState(() => _visibleCount += _pageSize),
+                    icon: const Icon(Icons.expand_more_rounded),
+                    label: const Text('Load More'),
+                  ),
+                ),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterRow() {
+    return Wrap(
+      spacing: 12,
+      runSpacing: 8,
+      children: [
+        _dropdown<String>(
+          label: 'Meter',
+          value: _selectedMeter,
+          items: _availableMeters,
+          labelBuilder: (v) => v,
+          onChanged: (v) => setState(() {
+            _selectedMeter = v;
+            _selectedYear = null;
+            _selectedMonth = null;
+            _selectedDay = null;
+            _visibleCount = _pageSize;
+          }),
+        ),
+        _dropdown<int>(
+          label: 'Year',
+          value: _selectedYear,
+          items: _availableYears,
+          labelBuilder: (v) => '$v',
+          onChanged: (v) => setState(() {
+            _selectedYear = v;
+            _selectedMonth = null;
+            _selectedDay = null;
+            _visibleCount = _pageSize;
+          }),
+        ),
+        _dropdown<int>(
+          label: 'Month',
+          value: _selectedMonth,
+          items: _availableMonths,
+          labelBuilder: (v) => DateFormat('MMMM').format(DateTime(2024, v)),
+          onChanged: (v) => setState(() {
+            _selectedMonth = v;
+            _selectedDay = null;
+            _visibleCount = _pageSize;
+          }),
+        ),
+        _dropdown<int>(
+          label: 'Day',
+          value: _selectedDay,
+          items: _availableDays,
+          labelBuilder: (v) => '$v',
+          onChanged: (v) => setState(() {
+            _selectedDay = v;
+            _visibleCount = _pageSize;
+          }),
+        ),
+      ],
+    );
+  }
+
+  Widget _dropdown<T>({
+    required String label,
+    required T? value,
+    required List<T> items,
+    required String Function(T) labelBuilder,
+    required ValueChanged<T?> onChanged,
+  }) {
+    return SizedBox(
+      width: 150,
+      child: DropdownButtonFormField<T>(
+        initialValue: value,
+        decoration: InputDecoration(
+          labelText: label,
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+        items: [
+          DropdownMenuItem<T>(
+            value: null,
+            child: Text('All', style: TextStyle(fontSize: 13)),
+          ),
+          for (final item in items)
+            DropdownMenuItem<T>(
+              value: item,
+              child: Text(labelBuilder(item), style: TextStyle(fontSize: 13)),
+            ),
+        ],
+        onChanged: onChanged,
+      ),
+    );
+  }
+
+  Widget _buildReadingCard(EnergyLogEntity log) {
+    final mf = log.multiplyingFactor;
+    final actualMd = log.mdRecorded * mf;
+    final actualKwh = log.kwh * mf;
+    final actualKvah = log.kvah * mf;
+    final pf = log.kvah > 0 ? (log.kwh / log.kvah).clamp(0.0, 1.0) : 0.0;
+
+    final issues = <_Issue>[];
+    if (log.kwh > 0 && log.kvah > 0 && log.kwh > log.kvah) {
+      issues.add(_Issue(
+        'Invalid (kWh > kVAh)',
+        AppColors.danger,
+        AppColors.danger.withValues(alpha: 0.1),
+      ));
+    }
+    if (log.kwh > 0 && log.kvah > 0 && pf < 0.9) {
+      issues.add(_Issue(
+        'Low PF (${pf.toStringAsFixed(3)} \u2014 penalty risk)',
+        AppColors.warning,
+        AppColors.warning.withValues(alpha: 0.1),
+      ));
+    } else if (log.kwh > 0 && log.kvah > 0 && pf < 0.95) {
+      issues.add(_Issue(
+        'PF Watch (${pf.toStringAsFixed(3)})',
+        AppColors.warning,
+        AppColors.warning.withValues(alpha: 0.06),
+      ));
+    }
+    if (log.kvah > 0 && log.kwh == 0 && log.powerFactor == 0) {
+      issues.add(_Issue(
+        'No PF data',
+        AppColors.textSecondary,
+        AppColors.surface2Light.withValues(alpha: 0.5),
+      ));
+    }
+
+    return AppCard(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: () => _showEditDialog(log),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.schedule, size: 14, color: AppColors.primary),
+                const SizedBox(width: 6),
+                Text(
+                  _fmtDate(log.loggedAt),
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    log.meterName,
+                    style: TextStyle(fontSize: 10, color: AppColors.primary, fontWeight: FontWeight.w600),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Icon(Icons.edit_outlined, size: 14, color: AppColors.textSecondary),
+                const SizedBox(width: 4),
+                GestureDetector(
+                  onTap: () => _confirmDelete(log),
+                  child: Icon(Icons.delete_outline, size: 14, color: AppColors.danger),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                _chip('kWh', actualKwh.toStringAsFixed(1)),
+                _chip('kVAh', actualKvah.toStringAsFixed(1)),
+                _chip('MD', '${actualMd.toStringAsFixed(1)} kVA'),
+                if (log.mdValues != null && log.mdValues!.length >= 4) ...[
+                  _chip('T1', log.mdValues![0].toStringAsFixed(1)),
+                  _chip('T2', log.mdValues![1].toStringAsFixed(1)),
+                  _chip('T3', log.mdValues![2].toStringAsFixed(1)),
+                  _chip('T4', log.mdValues![3].toStringAsFixed(1)),
+                ],
+                _chip('PF', pf.toStringAsFixed(3)),
+                _chip('MF', '${mf}x'),
+              ],
+            ),
+            if (issues.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: [
+                  for (final issue in issues)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: issue.bg,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            issue.color == AppColors.danger
+                                ? Icons.error_outline
+                                : issue.color == AppColors.warning
+                                    ? Icons.warning_amber_rounded
+                                    : Icons.info_outline,
+                            size: 12,
+                            color: issue.color,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            issue.text,
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: issue.color,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _confirmDelete(EnergyLogEntity log) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Reading'),
+        content: Text(
+          'Delete ${log.meterName} reading from ${_fmtDate(log.loggedAt)}?\n\n'
+          'This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              try {
+                await context.read<EnergyRepository>().deleteReading(log.id);
+                if (mounted) {
+                  context.read<EnergyBloc>().add(
+                    const LoadInitialDashboardData(),
+                  );
+                  _loadLogs();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Reading deleted'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              } catch (e) {
+                AppLogger.e('Delete failed', e);
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Delete failed: $e'),
+                      backgroundColor: Colors.red.shade700,
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: AppColors.danger),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _chip(String label, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.surface2Light.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '$label ',
+            style: TextStyle(fontSize: 10, color: AppColors.textSecondary, fontWeight: FontWeight.w500),
+          ),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showEditDialog(EnergyLogEntity log) async {
+    final kwhCtrl = TextEditingController(text: log.kwh.toStringAsFixed(2));
+    final kvahCtrl = TextEditingController(text: log.kvah.toStringAsFixed(2));
+    final rkvarhLagCtrl = TextEditingController(
+      text: log.rkvarhLag.toStringAsFixed(2),
+    );
+    final rkvarhLeadCtrl = TextEditingController(
+      text: log.rkvarhLead.toStringAsFixed(2),
+    );
+    final mdCtrl = TextEditingController(
+      text: log.mdRecorded.toStringAsFixed(2),
+    );
+    final mdT1Ctrl = TextEditingController(
+      text: log.mdValues != null && log.mdValues!.length >= 4
+          ? log.mdValues![0].toStringAsFixed(2)
+          : '',
+    );
+    final mdT2Ctrl = TextEditingController(
+      text: log.mdValues != null && log.mdValues!.length >= 4
+          ? log.mdValues![1].toStringAsFixed(2)
+          : '',
+    );
+    final mdT3Ctrl = TextEditingController(
+      text: log.mdValues != null && log.mdValues!.length >= 4
+          ? log.mdValues![2].toStringAsFixed(2)
+          : '',
+    );
+    final mdT4Ctrl = TextEditingController(
+      text: log.mdValues != null && log.mdValues!.length >= 4
+          ? log.mdValues![3].toStringAsFixed(2)
+          : '',
+    );
+    final formKey = GlobalKey<FormState>();
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (dialogCtx, setDialogState) {
+          var date = log.loggedAt;
+          return AlertDialog(
+            title: const Text('Edit Reading'),
+            content: SingleChildScrollView(
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextFormField(
+                      controller: kwhCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Consumed kWh',
+                        prefixIcon: Icon(Icons.bolt_outlined),
+                      ),
+                      keyboardType: TextInputType.number,
+                      validator: (v) {
+                        final val = double.tryParse(v ?? '');
+                        if (val == null || val <= 0) {
+                          return 'Enter a positive value';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: kvahCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Consumed kVAh',
+                        prefixIcon: Icon(Icons.speed_outlined),
+                      ),
+                      keyboardType: TextInputType.number,
+                      validator: (v) {
+                        final val = double.tryParse(v ?? '');
+                        if (val == null || val <= 0) {
+                          return 'Enter a positive value';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    if (AppConfig.useMultiMd && log.mdValues != null) ...[
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              controller: mdT1Ctrl,
+                              decoration: const InputDecoration(
+                                labelText: 'MD T1 (kVA)',
+                                prefixIcon: Icon(Icons.trending_up),
+                              ),
+                              keyboardType: TextInputType.number,
+                              validator: (v) {
+                                if (v == null || v.trim().isEmpty) return null;
+                                return double.tryParse(v.trim()) == null
+                                    ? 'Enter a valid number'
+                                    : null;
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: TextFormField(
+                              controller: mdT2Ctrl,
+                              decoration: const InputDecoration(
+                                labelText: 'MD T2 (kVA)',
+                                prefixIcon: Icon(Icons.trending_up),
+                              ),
+                              keyboardType: TextInputType.number,
+                              validator: (v) {
+                                if (v == null || v.trim().isEmpty) return null;
+                                return double.tryParse(v.trim()) == null
+                                    ? 'Enter a valid number'
+                                    : null;
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              controller: mdT3Ctrl,
+                              decoration: const InputDecoration(
+                                labelText: 'MD T3 (kVA)',
+                                prefixIcon: Icon(Icons.trending_up),
+                              ),
+                              keyboardType: TextInputType.number,
+                              validator: (v) {
+                                if (v == null || v.trim().isEmpty) return null;
+                                return double.tryParse(v.trim()) == null
+                                    ? 'Enter a valid number'
+                                    : null;
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: TextFormField(
+                              controller: mdT4Ctrl,
+                              decoration: const InputDecoration(
+                                labelText: 'MD T4 (kVA)',
+                                prefixIcon: Icon(Icons.trending_up),
+                              ),
+                              keyboardType: TextInputType.number,
+                              validator: (v) {
+                                if (v == null || v.trim().isEmpty) return null;
+                                return double.tryParse(v.trim()) == null
+                                    ? 'Enter a valid number'
+                                    : null;
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ] else
+                      TextFormField(
+                        controller: mdCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'MD Recorded (kVA)',
+                          prefixIcon: Icon(Icons.trending_up),
+                        ),
+                        keyboardType: TextInputType.number,
+                        validator: (v) {
+                          final val = double.tryParse(v ?? '');
+                          if (val == null || val <= 0) {
+                            return 'Enter a positive value';
+                          }
+                          return null;
+                        },
+                      ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: rkvarhLagCtrl,
+                            decoration: const InputDecoration(
+                              labelText: 'rkVARh (Lag)',
+                              prefixIcon: Icon(Icons.warning_outlined),
+                            ),
+                            keyboardType: TextInputType.number,
+                            validator: (v) {
+                              if (v == null || v.trim().isEmpty) return null;
+                              return double.tryParse(v.trim()) == null
+                                  ? 'Enter a valid number'
+                                  : null;
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextFormField(
+                            controller: rkvarhLeadCtrl,
+                            decoration: const InputDecoration(
+                              labelText: 'rkVARh (Lead)',
+                              prefixIcon: Icon(Icons.check_circle_outline),
+                            ),
+                            keyboardType: TextInputType.number,
+                            validator: (v) {
+                              if (v == null || v.trim().isEmpty) return null;
+                              return double.tryParse(v.trim()) == null
+                                  ? 'Enter a valid number'
+                                  : null;
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.event_outlined, size: 20),
+                      title: Text(
+                        DateFormat('dd MMM yyyy, HH:mm').format(date),
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                      trailing: const Icon(
+                        Icons.edit_calendar_outlined,
+                        size: 18,
+                      ),
+                      onTap: () async {
+                        final picked = await showDatePicker(
+                          context: dialogCtx,
+                          initialDate: date,
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime.now(),
+                        );
+                        if (picked == null) return;
+                        if (!dialogCtx.mounted) return;
+                        final time = await showTimePicker(
+                          context: dialogCtx,
+                          initialTime: TimeOfDay.fromDateTime(date),
+                        );
+                        if (time == null || !dialogCtx.mounted) return;
+                        setDialogState(() {
+                          date = DateTime(
+                            picked.year,
+                            picked.month,
+                            picked.day,
+                            time.hour,
+                            time.minute,
+                          );
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogCtx),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () async {
+                  if (!formKey.currentState!.validate()) return;
+                  final isMultiMd =
+                      AppConfig.useMultiMd && log.mdValues != null;
+                  List<double>? mdValues;
+                  double mdRecorded;
+                  if (isMultiMd) {
+                    mdValues = [
+                      double.tryParse(mdT1Ctrl.text.trim()) ?? 0,
+                      double.tryParse(mdT2Ctrl.text.trim()) ?? 0,
+                      double.tryParse(mdT3Ctrl.text.trim()) ?? 0,
+                      double.tryParse(mdT4Ctrl.text.trim()) ?? 0,
+                    ];
+                    mdRecorded = mdValues.reduce((a, b) => a > b ? a : b);
+                  } else {
+                    mdRecorded = double.parse(mdCtrl.text.trim());
+                  }
+                  final updatedModel = EnergyLogModel.create(
+                    id: log.id,
+                    meterName: log.meterName,
+                    kwh: double.parse(kwhCtrl.text.trim()),
+                    kvah: double.parse(kvahCtrl.text.trim()),
+                    currentKwh: log.currentKwh,
+                    currentKvah: log.currentKvah,
+                    rkvarhLag: double.tryParse(rkvarhLagCtrl.text.trim()) ?? 0,
+                    rkvarhLead: double.tryParse(rkvarhLeadCtrl.text.trim()) ?? 0,
+                    mdRecorded: mdRecorded,
+                    loggedAt: date,
+                    contractDemand: log.contractDemand,
+                    userId: log.userId,
+                    isSynced: log.isSynced,
+                    multiplyingFactor: log.multiplyingFactor,
+                    mdValues: mdValues ?? log.mdValues,
+                  );
+                  Navigator.pop(dialogCtx);
+                  try {
+                    await context.read<EnergyRepository>().updateReading(
+                      updatedModel,
+                    );
+                    if (mounted) {
+                      context.read<EnergyBloc>().add(
+                        const LoadInitialDashboardData(),
+                      );
+                      _loadLogs();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Reading updated'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    AppLogger.e('Update failed', e);
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Update failed: $e'),
+                          backgroundColor: Colors.red.shade700,
+                        ),
+                      );
+                    }
+                  }
+                },
+                child: const Text('Save'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _Issue {
+  final String text;
+  final Color color;
+  final Color bg;
+  const _Issue(this.text, this.color, this.bg);
+}

@@ -1,0 +1,215 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:ems/core/calculation/tod_calculator.dart';
+import 'package:ems/domain/entities/energy_log_entity.dart';
+
+EnergyLogEntity _log({
+  required String name,
+  required double kwh,
+  required double kvah,
+  required int hour,
+  DateTime? at,
+}) {
+  return EnergyLogEntity(
+    id: name,
+    meterName: 'Meter-01',
+    kwh: kwh,
+    kvah: kvah,
+    rkvarhLag: 0,
+    rkvarhLead: 0,
+    powerFactor: kwh > 0 && kvah > 0 ? kwh / kvah : 0,
+    mdRecorded: 30,
+    contractDemand: 400,
+    estimatedBill: 0,
+    loggedAt: at ?? DateTime(2026, 7, 3, hour),
+    multiplyingFactor: 1,
+  );
+}
+
+void main() {
+  group('TodCalculator slot engine', () {
+    const shares = {'A': 0.0, 'B': 0.0, 'C': -0.15, 'D': 0.25};
+
+    test('splits each 8h window pro-rata across its two zones '
+        '(shift-structured day)', () {
+      final result = TodCalculator.calculate(
+        logs: [
+          _log(name: 'day', kwh: 92, kvah: 100, hour: 6),
+          _log(name: 'eve', kwh: 92, kvah: 100, hour: 14),
+          _log(name: 'night', kwh: 92, kvah: 100, hour: 22),
+        ],
+        zoneShares: shares,
+        energyRatePerUnit: 8.44,
+      );
+      // 06–14 → B 3/8 + C 5/8; 14–22 → C 3/8 + D 5/8; 22–06 → D 2/8 + A 6/8
+      expect(result.zoneUnits['A'], closeTo(75, 0.001));
+      expect(result.zoneUnits['B'], closeTo(37.5, 0.001));
+      expect(result.zoneUnits['C'], closeTo(100, 0.001));
+      expect(result.zoneUnits['D'], closeTo(87.5, 0.001));
+    });
+
+    test('daily-totalizer day (single reading) spreads across zones '
+        'by the fixed single-reading profile', () {
+      final result = TodCalculator.calculate(
+        logs: [_log(name: 'one', kwh: 92, kvah: 100, hour: 0)],
+        zoneShares: shares,
+        energyRatePerUnit: 8.44,
+      );
+      // C 70.72%, D 16.55%, A+B 12.73% (bill-derived profile).
+      expect(result.zoneUnits['A'], closeTo(8.47, 0.001));
+      expect(result.zoneUnits['B'], closeTo(4.23, 0.001));
+      expect(result.zoneUnits['C'], closeTo(70.72, 0.001));
+      expect(result.zoneUnits['D'], closeTo(16.55, 0.001));
+    });
+
+    test('zone charges = units × (share × energy rate)', () {
+      final result = TodCalculator.calculate(
+        logs: [_log(name: 'day', kwh: 92, kvah: 100, hour: 6)],
+        zoneShares: shares,
+        energyRatePerUnit: 8.44,
+      );
+      // single reading = totalizer: C 70.72 × (−0.15 × 8.44) + D 16.55 ×
+      // (0.25 × 8.44) = −89.53 + 34.92
+      expect(result.netCharges, closeTo(-54.61, 0.01));
+    });
+
+    test('winter deepens the solar-window rebate only', () {
+      final result = TodCalculator.calculate(
+        logs: [_log(name: 'day', kwh: 92, kvah: 100, hour: 6)],
+        zoneShares: shares,
+        winterZoneShares: const {'A': 0.0, 'B': 0.0, 'C': -0.25, 'D': 0.25},
+        useWinter: true,
+        energyRatePerUnit: 8.44,
+      );
+      // single reading = totalizer: C 70.72 × (−0.25 × 8.44) + D 16.55 ×
+      // (0.25 × 8.44) = −149.22 + 34.92
+      expect(result.netCharges, closeTo(-114.30, 0.01));
+    });
+
+    test('bills kWh when the kVAh toggle is off', () {
+      final result = TodCalculator.calculate(
+        logs: [_log(name: 'day', kwh: 100, kvah: 200, hour: 6)],
+        zoneShares: shares,
+        energyRatePerUnit: 8.44,
+        onKvah: false,
+      );
+      // C fraction of the kWh (100, not 200) via fixed profile
+      expect(result.zoneUnits['C'], closeTo(70.72, 0.001));
+    });
+
+    test('day buckets spread shift units by zone-derived split for totalizer '
+        'days and keep window attribution for shift-structured days', () {
+      final buckets = TodCalculator.days(
+        logs: [
+          _log(name: 'totalizer', kwh: 92, kvah: 100, hour: 0,
+              at: DateTime(2026, 7, 2, 0)),
+          _log(name: 'day', kwh: 103.5, kvah: 112.5, hour: 6),
+          _log(name: 'eve', kwh: 103.5, kvah: 112.5, hour: 14),
+          _log(name: 'night', kwh: 103.5, kvah: 112.5, hour: 22),
+        ],
+      );
+      expect(buckets, hasLength(2));
+      final totalizer = buckets.first;
+      // Zone-derived shift split from single-reading profile:
+      //   Day = B + 5/8×C = 4.23 + 44.20 = 48.43
+      //   Evening = 3/8×C + 5/7×D = 26.52 + 11.82 = 38.34
+      //   Night = 2/7×D + A = 4.73 + 8.47 = 13.20
+      expect(totalizer.shiftUnits[0], closeTo(48.43, 0.1));
+      expect(totalizer.shiftUnits[1], closeTo(38.34, 0.1));
+      expect(totalizer.shiftUnits[2], closeTo(13.20, 0.1));
+      final structured = buckets.last;
+      expect(structured.shiftUnits[0], closeTo(112.5, 0.001));
+      expect(structured.shiftUnits[1], closeTo(112.5, 0.001));
+      expect(structured.shiftUnits[2], closeTo(112.5, 0.001));
+    });
+
+    test('total shift ToD equals net zone ToD for single-reading days', () {
+      const shares = {'A': 1.0, 'B': 1.0, 'C': 0.85, 'D': 1.25};
+      const rate = 8.44;
+      final result = TodCalculator.calculate(
+        logs: [_log(name: 'r1', kwh: 92, kvah: 100, hour: 0)],
+        zoneShares: shares,
+        energyRatePerUnit: rate,
+      );
+      final buckets = TodCalculator.days(
+        logs: [_log(name: 'r1', kwh: 92, kvah: 100, hour: 0)],
+      );
+      // Reconstruct shift amounts using zone fractions (same as UI)
+      const frac = <int, List<(String, double)>>{
+        0: [('B', 1.0), ('C', 5 / 8)],
+        1: [('C', 3 / 8), ('D', 5 / 7)],
+        2: [('D', 2 / 7), ('A', 1.0)],
+      };
+      var shiftTotal = 0.0;
+      for (var s = 0; s < 3; s++) {
+        for (final d in buckets) {
+          for (final (z, f) in frac[s]!) {
+            shiftTotal += (d.zoneUnits[z] ?? 0) * f * (shares[z] ?? 0) * rate;
+          }
+        }
+      }
+      expect(shiftTotal, closeTo(result.netCharges, 0.01));
+    });
+
+    test('total shift ToD equals net zone ToD for shift-structured days', () {
+      const shares = {'A': 1.0, 'B': 1.0, 'C': 0.85, 'D': 1.25};
+      const rate = 8.44;
+      final logs = [
+        _log(name: 'day', kwh: 92, kvah: 100, hour: 6),
+        _log(name: 'eve', kwh: 92, kvah: 100, hour: 14),
+        _log(name: 'night', kwh: 92, kvah: 100, hour: 22),
+      ];
+      final result = TodCalculator.calculate(
+        logs: logs,
+        zoneShares: shares,
+        energyRatePerUnit: rate,
+      );
+      final buckets = TodCalculator.days(logs: logs);
+      const frac = <int, List<(String, double)>>{
+        0: [('B', 1.0), ('C', 5 / 8)],
+        1: [('C', 3 / 8), ('D', 5 / 7)],
+        2: [('D', 2 / 7), ('A', 1.0)],
+      };
+      var shiftTotal = 0.0;
+      for (var s = 0; s < 3; s++) {
+        for (final d in buckets) {
+          for (final (z, f) in frac[s]!) {
+            shiftTotal += (d.zoneUnits[z] ?? 0) * f * (shares[z] ?? 0) * rate;
+          }
+        }
+      }
+      expect(shiftTotal, closeTo(result.netCharges, 0.01));
+    });
+
+    test('total shift ToD equals net zone ToD for mixed days', () {
+      const shares = {'A': 1.0, 'B': 1.0, 'C': 0.85, 'D': 1.25};
+      const rate = 8.44;
+      final logs = [
+        _log(name: 'totalizer', kwh: 92, kvah: 100, hour: 0,
+            at: DateTime(2026, 7, 2, 0)),
+        _log(name: 'day', kwh: 103.5, kvah: 112.5, hour: 6),
+        _log(name: 'eve', kwh: 103.5, kvah: 112.5, hour: 14),
+        _log(name: 'night', kwh: 103.5, kvah: 112.5, hour: 22),
+      ];
+      final result = TodCalculator.calculate(
+        logs: logs,
+        zoneShares: shares,
+        energyRatePerUnit: rate,
+      );
+      final buckets = TodCalculator.days(logs: logs);
+      const frac = <int, List<(String, double)>>{
+        0: [('B', 1.0), ('C', 5 / 8)],
+        1: [('C', 3 / 8), ('D', 5 / 7)],
+        2: [('D', 2 / 7), ('A', 1.0)],
+      };
+      var shiftTotal = 0.0;
+      for (var s = 0; s < 3; s++) {
+        for (final d in buckets) {
+          for (final (z, f) in frac[s]!) {
+            shiftTotal += (d.zoneUnits[z] ?? 0) * f * (shares[z] ?? 0) * rate;
+          }
+        }
+      }
+      expect(shiftTotal, closeTo(result.netCharges, 0.01));
+    });
+  });
+}

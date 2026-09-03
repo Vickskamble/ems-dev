@@ -1,0 +1,544 @@
+import '../../domain/entities/energy_log_entity.dart';
+import '../config/app_config.dart';
+import '../config/tariff_presets.dart';
+import '../constants/app_constants.dart';
+import 'bill_breakdown.dart';
+import 'energy_calculator.dart';
+import 'tod_calculator.dart';
+
+class BillCalculator {
+  BillCalculator._();
+
+  static BillBreakdown calculate({
+    required List<EnergyLogEntity> logs,
+    double? contractDemand,
+    double? energyRate,
+    double? demandRate,
+    double? facRate,
+    double? wheelingRate,
+    double? electricityDutyPerUnit,
+    double? taxPerUnit,
+    double? dutyPercent,
+    double? taxPercent,
+    double? icrRate,
+    double? icrLastYearUnits,
+    double? lfIncentivePercent,
+    double? ppdPercent,
+    double? bulkRebatePercent,
+    double? arrearsDpcAmount,
+    bool? roundToTen,
+    bool? billOnKvah,
+    List<EnergySlab>? slabs,
+    double fixedCharge = 0,
+    List<double>? todMultipliers,
+    Map<String, double>? todZoneShares,
+    Map<String, double>? todZoneSharesWinter,
+    bool? useWinterTod,
+    double regionSubsidy = 0,
+    double rebateSection106 = 0,
+    double taxCollectionAtSource = 0,
+    double goMSubsidyFixed = 0,
+    double goMSubsidyTod = 0,
+    List<EnergyLogEntity>? ratchetLogs,
+    int ratchetMonths = AppConstants.ratchetWindowMonths,
+    List<double>? manualRatchetDemandKva,
+  }) {
+    final effectiveContractDemand = contractDemand ?? AppConfig.contractDemandKva;
+    final effectiveEnergyRate = energyRate ?? AppConfig.tariffPerUnit;
+    final effectiveDemandRate = demandRate ?? AppConfig.demandChargePerKva;
+    final effectiveFacRate = facRate ?? AppConfig.facRatePerUnit;
+    final effectiveWheelingRate = wheelingRate ?? AppConfig.wheelingChargePerUnit;
+    final effectiveEdRate = electricityDutyPerUnit ?? AppConfig.electricityDutyPerUnit;
+    final effectiveTaxRate = taxPerUnit ?? AppConfig.taxPerUnit;
+    final effectiveDutyPercent = dutyPercent ?? AppConfig.dutyPercent;
+    final effectiveTaxPercent = taxPercent ?? AppConfig.taxPercent;
+    final effectiveIcrRate = icrRate ?? AppConfig.icrRatePerUnit;
+    final effectiveIcrLastYear = icrLastYearUnits ?? AppConfig.icrLastYearUnits;
+    final effectivePpdPercent = ppdPercent ?? AppConfig.ppdPercent;
+    final effectiveBulkPercent =
+        bulkRebatePercent ?? AppConfig.bulkRebatePercent;
+    final effectiveArrears = arrearsDpcAmount ?? AppConfig.arrearsDpcAmount;
+    final effectiveBillOnKvah = billOnKvah ?? AppConfig.billOnKvah;
+    final effectiveSlabs = slabs ?? AppConfig.energySlabs;
+    final effectiveFixedCharge =
+        fixedCharge > 0 ? fixedCharge : AppConfig.fixedCharge;
+    final effectiveTod = todMultipliers ?? AppConfig.todMultipliers;
+    final effectiveZoneShares = todZoneShares ?? AppConfig.todZoneShares;
+    final effectiveZoneSharesWinter =
+        todZoneSharesWinter ?? AppConfig.todZoneSharesWinter;
+    final effectiveUseWinterTod = useWinterTod ?? AppConfig.useWinterTod;
+    if (logs.isEmpty) return _emptyBreakdown(effectiveContractDemand);
+
+    double totalKwh = 0;
+    double totalKvah = 0;
+    double totalExportKwh = 0;
+    double totalGenerationKwh = 0;
+    double totalTurbineKwh = 0;
+    double peakMd = 0;
+    double sumMd = 0;
+    int mdCount = 0;
+
+    for (final log in logs) {
+      // Applying each meter's CT/PT ratio keeps the combined PF correct when
+      // multiple meters with different multipliers are billed together.
+      final importKwh = log.kwh * log.multiplyingFactor;
+      final importKvah = log.kvah * log.multiplyingFactor;
+      totalKwh += importKwh;
+      totalKvah += importKvah;
+
+      // Solar: accumulate export and generation (MF-adjusted).
+      if (log.exportKwh != null && log.exportKwh! > 0) {
+        totalExportKwh += log.exportKwh! * log.multiplyingFactor;
+      }
+      if (log.generationKwh != null && log.generationKwh! > 0) {
+        totalGenerationKwh += log.generationKwh! * log.multiplyingFactor;
+      }
+      // Turbine: accumulate generation (MF-adjusted).
+      if (log.turbineKwh != null && log.turbineKwh! > 0) {
+        totalTurbineKwh += log.turbineKwh! * log.multiplyingFactor;
+      }
+
+      final actualMd = log.mdRecorded * log.multiplyingFactor;
+      if (actualMd > peakMd) peakMd = actualMd;
+      sumMd += actualMd;
+      mdCount++;
+    }
+
+    // Aggregate monthly PF = total active energy ÷ total apparent energy
+    // (ΣkWh / ΣkVAh) — the same ratio the utility meter reports. Per-reading
+    // stored PF is NOT averaged: a weighted average of ratios over-estimates
+    // PF when it varies between readings, which can wrongly skip a penalty.
+    double powerFactor = totalKvah > 0
+        ? EnergyCalculator.calculatePowerFactor(totalKwh, totalKvah)
+        : 0.0;
+    // Billing units: official kVAh (apparent energy, PF-adjusted) or kWh
+    // when the user switches the toggle off. Each reading's own multiplying
+    // factor (CT × PT ratio) is applied so meters with different MF never
+    // distort the bill.
+    double totalUnits = 0;
+    for (final log in logs) {
+      final importUnits =
+          (effectiveBillOnKvah ? log.kvah : log.kwh) * log.multiplyingFactor;
+      // Solar net billing: subtract export from import for net billed units.
+      final exportUnits = log.exportKwh != null && log.exportKwh! > 0
+          ? log.exportKwh! * log.multiplyingFactor
+          : 0.0;
+      // Turbine net billing: subtract generation from import (same as solar export).
+      final turbineUnits = log.turbineKwh != null && log.turbineKwh! > 0
+          ? log.turbineKwh! * log.multiplyingFactor
+          : 0.0;
+      totalUnits += (importUnits - exportUnits - turbineUnits).clamp(0.0, double.infinity);
+    }
+    final billingDemand = EnergyCalculator.calculateBillingDemand(
+      peakMd,
+      effectiveContractDemand,
+      ratchetPeak: _ratchetPeak(logs, ratchetLogs, ratchetMonths,
+          manualRatchetDemandKva:
+              manualRatchetDemandKva ?? AppConfig.precedingDemandKva),
+      floorPercentOfContract: AppConfig.billingDemandFloorPct / 100,
+      floorPercentOfRatchet: AppConfig.ratchetFloorPctOfRatchet / 100,
+    );
+    final avgDemand = mdCount > 0 ? sumMd / mdCount.toDouble() : 0.0;
+    final loadFactor = EnergyCalculator.calculateLoadFactor(avgDemand, peakMd);
+
+    final energyCharges = effectiveSlabs.isNotEmpty
+        ? EnergyCalculator.calculateSlabEnergy(totalUnits, effectiveSlabs)
+        : EnergyCalculator.calculateEnergyCharges(
+            totalUnits,
+            effectiveEnergyRate,
+          );
+    final demandCharges = EnergyCalculator.calculateDemandCharges(
+      billingDemand,
+      effectiveDemandRate,
+    );
+    final facCharges = EnergyCalculator.calculateFac(
+      totalUnits,
+      effectiveFacRate,
+    );
+    final wheelingCharges = EnergyCalculator.calculateWheelingCharges(
+      totalUnits,
+      effectiveWheelingRate,
+    );
+
+    // TOD charges — slot-wise engine (6-hour zones) when zone shares are
+    // configured; legacy multiplier average otherwise.
+    final bool useSlotTod = effectiveZoneShares.isNotEmpty;
+    final TodZoneResult? zoneResult = useSlotTod
+        ? TodCalculator.calculate(
+            logs: logs,
+            energyRatePerUnit: effectiveEnergyRate,
+            onKvah: effectiveBillOnKvah,
+            zoneShares: effectiveZoneShares,
+            winterZoneShares: effectiveZoneSharesWinter,
+            useWinter: effectiveUseWinterTod,
+          )
+        : null;
+    final todCharges = zoneResult?.netCharges ??
+        EnergyCalculator.calculateTodCharges(
+          energyCharges,
+          effectiveTod,
+        );
+
+    // Electricity duty = % of energy charges (official model, HT exempt);
+    // flat per-unit × units only as legacy fallback.
+    final electricityDuty = effectiveDutyPercent > 0
+        ? energyCharges * effectiveDutyPercent / 100
+        : EnergyCalculator.calculateElectricityDuty(
+            totalUnits,
+            effectiveEdRate,
+          );
+
+    // Taxes = % of energy charges (official ~1.25%); flat per-unit × kWh
+    // when no percent — the printed bill taxes active (kWh) energy, not the
+    // apparent (kVAh) billing units.
+    final taxes = effectiveTaxPercent > 0
+        ? energyCharges * effectiveTaxPercent / 100
+        : EnergyCalculator.calculateTaxes(
+            totalKwh,
+            effectiveTaxRate,
+          );
+
+    // Incremental Consumption Rebate — ₹ per unit on the incremental
+    // consumption when it grows ≥ 10% vs the same month last year.
+    final icrRebate = effectiveIcrRate > 0 &&
+            effectiveIcrLastYear > 0 &&
+            totalUnits >= effectiveIcrLastYear * 1.10
+        ? (totalUnits - effectiveIcrLastYear) * effectiveIcrRate
+        : 0.0;
+
+    // Load Factor incentive — HTML trial rules: rate per 1% of energy charges
+    // for every % of LF above the threshold, capped at the sealing %.
+    final lfPct = loadFactor * 100;
+    final lfPotPct = AppConfig.lfSealingPct > 0 &&
+            lfPct > AppConfig.lfThresholdPct
+        ? (lfPct - AppConfig.lfThresholdPct) * AppConfig.lfRatePct
+            .clamp(0.0, AppConfig.lfSealingPct)
+        : 0.0;
+    final lfIncentive = lfPotPct > 0 ? energyCharges * lfPotPct / 100 : 0.0;
+
+    // Bulk consumption rebate — % of energy charges.
+    final bulkRebate = effectiveBulkPercent > 0
+        ? energyCharges * effectiveBulkPercent / 100
+        : 0.0;
+
+    final pfRebate = EnergyCalculator.calculatePfRebate(
+      energyCharges,
+      demandCharges,
+      powerFactor,
+    );
+    final pfSurcharge = EnergyCalculator.calculatePfSurcharge(
+      energyCharges,
+      demandCharges,
+      powerFactor,
+    );
+    final subsidy = AppConfig.subsidyPercent > 0
+        ? (energyCharges + demandCharges + facCharges + wheelingCharges + todCharges) *
+            AppConfig.subsidyPercent /
+            100
+        : 0.0;
+
+    // Prompt Payment Discount — % of the bill after other rebates.
+    final ppdRebate = effectivePpdPercent > 0
+        ? (energyCharges +
+              demandCharges +
+              facCharges +
+              wheelingCharges +
+              todCharges +
+              effectiveFixedCharge +
+              electricityDuty +
+              taxes -
+              pfRebate -
+              icrRebate -
+              lfIncentive -
+              bulkRebate -
+              subsidy -
+              regionSubsidy -
+              rebateSection106 -
+              taxCollectionAtSource -
+              goMSubsidyFixed -
+              goMSubsidyTod) *
+            effectivePpdPercent /
+            100
+        : 0.0;
+
+    final rawNet = EnergyCalculator.calculateTotalBill(
+      energyCharges: energyCharges,
+      demandCharges: demandCharges,
+      facCharges: facCharges,
+      wheelingCharges: wheelingCharges,
+      electricityDuty: electricityDuty,
+      taxes: taxes,
+      pfRebate: pfRebate,
+      pfSurcharge: pfSurcharge,
+      subsidy: subsidy,
+      todCharges: todCharges,
+      regionSubsidy: regionSubsidy,
+      rebateSection106: rebateSection106,
+      taxCollectionAtSource: taxCollectionAtSource,
+      goMSubsidyFixed: goMSubsidyFixed,
+      goMSubsidyTod: goMSubsidyTod,
+      fixedCharge: effectiveFixedCharge,
+      icrRebate: icrRebate,
+      lfIncentive: lfIncentive,
+      ppdRebate: ppdRebate,
+      bulkRebate: bulkRebate,
+      arrearsDpc: effectiveArrears,
+    );
+
+    // Rounding model: the bill total stays exact (matches the discom's
+    // printed total); only the payable columns floor down to ₹10.
+    final roundingAdjustment = 0.0;
+    final netBill = rawNet;
+
+    final averageUnitCost = EnergyCalculator.calculateAverageUnitCost(
+      netBill,
+      totalUnits,
+    );
+
+    // Payable amounts (₹, floored to the nearest ₹10) — the arithmetic bill
+    // stays exact; only the payable columns are rounded like the paper bill.
+    final payableEarlyBase = netBill - ppdRebate;
+    final payableAfterDpcBase = netBill;
+
+    return BillBreakdown(
+      totalUnits: totalUnits,
+      energyCharges: (energyCharges * 100).roundToDouble() / 100,
+      demandCharges: (demandCharges * 100).roundToDouble() / 100,
+      facCharges: (facCharges * 100).roundToDouble() / 100,
+      wheelingCharges: (wheelingCharges * 100).roundToDouble() / 100,
+      electricityDuty: (electricityDuty * 100).roundToDouble() / 100,
+      taxes: (taxes * 100).roundToDouble() / 100,
+      pfRebate: (pfRebate * 100).roundToDouble() / 100,
+      pfSurcharge: (pfSurcharge * 100).roundToDouble() / 100,
+      subsidy: (subsidy * 100).roundToDouble() / 100,
+      todCharges: (todCharges * 100).roundToDouble() / 100,
+      regionSubsidy: (regionSubsidy * 100).roundToDouble() / 100,
+      rebateSection106: (rebateSection106 * 100).roundToDouble() / 100,
+      fixedCharge: (effectiveFixedCharge * 100).roundToDouble() / 100,
+      icrRebate: (icrRebate * 100).roundToDouble() / 100,
+      lfIncentive: (lfIncentive * 100).roundToDouble() / 100,
+      ppdRebate: (ppdRebate * 100).roundToDouble() / 100,
+      bulkRebate: (bulkRebate * 100).roundToDouble() / 100,
+      arrearsDpc: (effectiveArrears * 100).roundToDouble() / 100,
+      taxCollectionAtSource:
+          (taxCollectionAtSource * 100).roundToDouble() / 100,
+      goMSubsidyFixed: (goMSubsidyFixed * 100).roundToDouble() / 100,
+      goMSubsidyTod: (goMSubsidyTod * 100).roundToDouble() / 100,
+      roundingAdjustment:
+          (roundingAdjustment * 100).roundToDouble() / 100,
+      netBill: (netBill * 100).roundToDouble() / 100,
+      todZoneUnits: zoneResult?.zoneUnits ?? const {},
+      todZoneCharges: zoneResult?.zoneCharges ?? const {},
+      billingDemand: (billingDemand * 100).roundToDouble() / 100,
+      contractDemand: effectiveContractDemand,
+      powerFactor: (powerFactor * 1000).roundToDouble() / 1000,
+      loadFactor: (loadFactor * 1000).roundToDouble() / 1000,
+      averageUnitCost: (averageUnitCost * 100).roundToDouble() / 100,
+      totalExportKwh: (totalExportKwh * 100).roundToDouble() / 100,
+      totalGenerationKwh:
+          (totalGenerationKwh * 100).roundToDouble() / 100,
+      totalTurbineKwh: (totalTurbineKwh * 100).roundToDouble() / 100,
+      payableEarly: BillBreakdown.roundToTen(payableEarlyBase),
+      payableAfterDpc: BillBreakdown.roundToTen(payableAfterDpcBase),
+    );
+  }
+
+  static MonthComparison compare(
+    BillBreakdown current,
+    BillBreakdown? previous,
+  ) {
+    if (previous == null) {
+      return MonthComparison(
+        current: current,
+        billDifference: 0,
+        billPercentChange: 0,
+        unitDifference: 0,
+        unitPercentChange: 0,
+        demandDifference: 0,
+        demandPercentChange: 0,
+        pfDifference: 0,
+      );
+    }
+    return MonthComparison(
+      current: current,
+      previous: previous,
+      billDifference:
+          (EnergyCalculator.calculateDifference(
+                    current.netBill,
+                    previous.netBill,
+                  ) *
+                  100)
+              .roundToDouble() /
+          100,
+      billPercentChange:
+          (EnergyCalculator.calculatePercentChange(
+                    current.netBill,
+                    previous.netBill,
+                  ) *
+                  100)
+              .roundToDouble() /
+          100,
+      unitDifference:
+          (EnergyCalculator.calculateDifference(
+                    current.totalUnits,
+                    previous.totalUnits,
+                  ) *
+                  100)
+              .roundToDouble() /
+          100,
+      unitPercentChange:
+          (EnergyCalculator.calculatePercentChange(
+                    current.totalUnits,
+                    previous.totalUnits,
+                  ) *
+                  100)
+              .roundToDouble() /
+          100,
+      demandDifference:
+          (EnergyCalculator.calculateDifference(
+                    current.billingDemand,
+                    previous.billingDemand,
+                  ) *
+                  100)
+              .roundToDouble() /
+          100,
+      demandPercentChange:
+          (EnergyCalculator.calculatePercentChange(
+                    current.billingDemand,
+                    previous.billingDemand,
+                  ) *
+                  100)
+              .roundToDouble() /
+          100,
+      pfDifference:
+          (EnergyCalculator.calculateDifference(
+                    current.powerFactor,
+                    previous.powerFactor,
+                  ) *
+                  1000)
+              .roundToDouble() /
+          1000,
+    );
+  }
+
+  static BusinessKpi calculateKpis(BillBreakdown breakdown) {
+    return BusinessKpi(
+      billHealthScore:
+          (EnergyCalculator.calculateBillHealthScore(
+                    powerFactor: breakdown.powerFactor,
+                    loadFactor: breakdown.loadFactor,
+                    billingDemand: breakdown.billingDemand,
+                    contractDemand: breakdown.contractDemand,
+                    pfSurcharge: breakdown.pfSurcharge,
+                  ) *
+                  100)
+              .roundToDouble() /
+          100,
+      energyScore:
+          (EnergyCalculator.calculateEnergyScore(
+                    powerFactor: breakdown.powerFactor,
+                    loadFactor: breakdown.loadFactor,
+                    averageUnitCost: breakdown.averageUnitCost,
+                  ) *
+                  100)
+              .roundToDouble() /
+          100,
+    );
+  }
+
+  /// Ratchet peak — the highest demand considered in the billing demand of
+  /// the current month. Two sources are combined:
+  ///  1. The highest monthly demand (actual kVA = MD × MF) over the trailing
+  ///     window [latest month of [logs] − [ratchetMonths] months .. latest
+  ///     month] computed from the full history ([ratchetLogs]) — once a peak
+  ///     occurs it stays in the billing demand of every following month until
+  ///     a higher one breaks it or it leaves the window.
+  ///  2. User-provided preceding-11-month demands ([manualRatchetDemandKva])
+  ///     entered in Settings → Billing so bills match the discom's own
+  ///     ratchet even before the app has 11 months of history.
+  static double _ratchetPeak(
+    List<EnergyLogEntity> logs,
+    List<EnergyLogEntity>? ratchetLogs,
+    int ratchetMonths, {
+    List<double>? manualRatchetDemandKva,
+  }) {
+    final effectiveManual =
+        manualRatchetDemandKva ?? AppConfig.precedingDemandKva;
+    final manualPeak = effectiveManual.fold(
+      0.0,
+      (peak, v) => v > peak ? v : peak,
+    );
+    if (ratchetLogs == null || ratchetLogs.isEmpty || ratchetMonths < 1) {
+      return manualPeak;
+    }
+    DateTime? latestMonth;
+    for (final log in logs) {
+      final m = DateTime(log.loggedAt.year, log.loggedAt.month);
+      if (latestMonth == null || m.isAfter(latestMonth)) latestMonth = m;
+    }
+    if (latestMonth == null) return 0;
+
+    final windowStart = DateTime(
+      latestMonth.year,
+      latestMonth.month - ratchetMonths,
+      1,
+    );
+    final windowEnd = DateTime(latestMonth.year, latestMonth.month + 1, 1);
+    final monthlyMax = <int, double>{};
+    for (final log in ratchetLogs) {
+      if (log.loggedAt.isBefore(windowStart) ||
+          !log.loggedAt.isBefore(windowEnd)) {
+        continue;
+      }
+      final key = log.loggedAt.year * 12 + (log.loggedAt.month - 1);
+      final actualMd = log.mdRecorded * log.multiplyingFactor;
+      monthlyMax.update(
+        key,
+        (v) => actualMd > v ? actualMd : v,
+        ifAbsent: () => actualMd,
+      );
+    }
+    var ratchetPeak = 0.0;
+    for (final v in monthlyMax.values) {
+      if (v > ratchetPeak) ratchetPeak = v;
+    }
+    if (manualPeak > ratchetPeak) ratchetPeak = manualPeak;
+    return ratchetPeak;
+  }
+
+  static BillBreakdown _emptyBreakdown(double contractDemand) {    return BillBreakdown(
+      totalUnits: 0,
+      energyCharges: 0,
+      demandCharges: 0,
+      facCharges: 0,
+      wheelingCharges: 0,
+      electricityDuty: 0,
+      taxes: 0,
+      pfRebate: 0,
+      pfSurcharge: 0,
+      subsidy: 0,
+      todCharges: 0,
+      regionSubsidy: 0,
+      rebateSection106: 0,
+      fixedCharge: 0,
+      icrRebate: 0,
+      lfIncentive: 0,
+      ppdRebate: 0,
+      bulkRebate: 0,
+      arrearsDpc: 0,
+      taxCollectionAtSource: 0,
+      goMSubsidyFixed: 0,
+      goMSubsidyTod: 0,
+      roundingAdjustment: 0,
+      netBill: 0,
+      billingDemand: 0,
+      contractDemand: contractDemand,
+      powerFactor: 0,
+      loadFactor: 0,
+      averageUnitCost: 0,
+      totalExportKwh: 0,
+      totalGenerationKwh: 0,
+      totalTurbineKwh: 0,
+    );
+  }
+}

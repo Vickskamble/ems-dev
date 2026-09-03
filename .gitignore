@@ -1,0 +1,74 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# The .vscode folder contains launch configuration and tasks you configure in
+# VS Code which you may wish to be included in version control, so this line
+# is commented out by default.
+#.vscode/
+
+# Flutter/Dart/Pub related
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/build/
+/coverage/
+
+# Symbolication related
+app.*.symbols
+
+# Obfuscation related
+app.*.map.json
+
+# Android Studio will place build artifacts here
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# Environment variables
+.env
+
+# Local dev artifacts
+ems_meta.db
+/release/ems.exe
+
+# Web deploy folder (own git repo -> powerems-web / Vercel)
+/web-deploy/
+
+# Build artifacts
+/dist/
+build_web_log.txt
+
+# Web trial build (no-dot env copy - secrets; written by CI)
+assets/env
+!assets/env
+
+# Dev repo: no release binaries / installers / screenshots (built by CI)
+release/
+windows/redist/
+build_*.log
+build_apk_log*.txt
+build_installer_log.txt
+build_windows_log.txt
+supabase_deploy_log.txt
+plan_mockup.html
+prototype/
