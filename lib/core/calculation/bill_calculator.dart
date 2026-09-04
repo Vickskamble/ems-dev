@@ -74,6 +74,7 @@ class BillCalculator {
     double totalExportKwh = 0;
     double totalGenerationKwh = 0;
     double totalTurbineKwh = 0;
+    double totalTurbineExportKwh = 0;
     double peakMd = 0;
     double sumMd = 0;
     int mdCount = 0;
@@ -96,6 +97,10 @@ class BillCalculator {
       // Turbine: accumulate generation (MF-adjusted).
       if (log.turbineKwh != null && log.turbineKwh! > 0) {
         totalTurbineKwh += log.turbineKwh! * log.multiplyingFactor;
+      }
+      // Turbine: accumulate export to grid (MF-adjusted).
+      if (log.turbineExportKwh != null && log.turbineExportKwh! > 0) {
+        totalTurbineExportKwh += log.turbineExportKwh! * log.multiplyingFactor;
       }
 
       final actualMd = log.mdRecorded * log.multiplyingFactor;
@@ -127,7 +132,14 @@ class BillCalculator {
       final turbineUnits = log.turbineKwh != null && log.turbineKwh! > 0
           ? log.turbineKwh! * log.multiplyingFactor
           : 0.0;
-      totalUnits += (importUnits - exportUnits - turbineUnits).clamp(0.0, double.infinity);
+      // Turbine export: subtract units fed back to grid (same as solar export).
+      final turbineExportUnits =
+          log.turbineExportKwh != null && log.turbineExportKwh! > 0
+          ? log.turbineExportKwh! * log.multiplyingFactor
+          : 0.0;
+      totalUnits +=
+          (importUnits - exportUnits - turbineUnits - turbineExportUnits)
+              .clamp(0.0, double.infinity);
     }
     final billingDemand = EnergyCalculator.calculateBillingDemand(
       peakMd,
@@ -338,6 +350,8 @@ class BillCalculator {
       totalGenerationKwh:
           (totalGenerationKwh * 100).roundToDouble() / 100,
       totalTurbineKwh: (totalTurbineKwh * 100).roundToDouble() / 100,
+      totalTurbineExportKwh:
+          (totalTurbineExportKwh * 100).roundToDouble() / 100,
       payableEarly: BillBreakdown.roundToTen(payableEarlyBase),
       payableAfterDpc: BillBreakdown.roundToTen(payableAfterDpcBase),
     );

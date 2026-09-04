@@ -135,7 +135,7 @@ class _BillingPageState extends State<BillingPage> with WidgetsBindingObserver {
   String _monthlyEquivalent(int price) {
     final months = _selectedTerm == PlanTerm.yearly ? 12 : 3;
     final nf = NumberFormat('#,##,##0', 'en_IN');
-    return nf.format(price ~/ months);
+    return nf.format((price / months).round());
   }
 
   // ---------------------------------------------------------------------------

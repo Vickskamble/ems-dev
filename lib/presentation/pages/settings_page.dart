@@ -551,7 +551,7 @@ class _SettingsScreenState extends State<SettingsScreen>
         facRatePerUnit: double.parse(_facCtrl.text.trim()),
         wheelingChargePerUnit: double.parse(_wheelingCtrl.text.trim()),
         electricityDutyPerUnit: AppConfig.electricityDutyPerUnit,
-        taxPerUnit: double.parse(_taxCtrl.text.trim()),
+        taxPerUnit: AppConfig.taxPerUnit,
         subsidyPercent: double.parse(_subsidyCtrl.text.trim()),
         contractDemandKva: double.parse(_mdCtrl.text.trim()),
         precedingDemandKva: [

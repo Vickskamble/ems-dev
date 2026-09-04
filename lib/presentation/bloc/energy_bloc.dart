@@ -180,6 +180,7 @@ class EnergyBloc extends Bloc<EnergyEvent, EnergyState> {
         exportKvah: event.exportKvah,
         generationKwh: event.generationKwh,
         turbineKwh: event.turbineKwh,
+        turbineExportKwh: event.turbineExportKwh,
         mdValues: event.mdValues,
       );
 

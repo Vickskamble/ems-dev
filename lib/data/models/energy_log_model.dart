@@ -40,6 +40,10 @@ class EnergyLogModel {
   /// Subtracted from import for net billing (same as solar export).
   final double? turbineKwh;
 
+  /// Turbine export in kWh — units fed back to grid, before MF.
+  /// Subtracted from import for net billing (same as solar export).
+  final double? turbineExportKwh;
+
   final double energyCharges;
   final double demandCharges;
   final double facCharges;
@@ -78,6 +82,7 @@ class EnergyLogModel {
     this.exportKvah,
     this.generationKwh,
     this.turbineKwh,
+    this.turbineExportKwh,
     this.energyCharges = 0,
     this.demandCharges = 0,
     this.facCharges = 0,
@@ -115,6 +120,7 @@ class EnergyLogModel {
     exportKvah: exportKvah,
     generationKwh: generationKwh,
     turbineKwh: turbineKwh,
+    turbineExportKwh: turbineExportKwh,
     energyCharges: energyCharges,
     demandCharges: demandCharges,
     facCharges: facCharges,
@@ -152,6 +158,7 @@ class EnergyLogModel {
     exportKvah: entity.exportKvah,
     generationKwh: entity.generationKwh,
     turbineKwh: entity.turbineKwh,
+    turbineExportKwh: entity.turbineExportKwh,
     energyCharges: entity.energyCharges,
     demandCharges: entity.demandCharges,
     facCharges: entity.facCharges,
@@ -191,6 +198,8 @@ class EnergyLogModel {
       'generation_kwh': _toPrecision(generationKwh!, 2),
     if (turbineKwh != null)
       'turbine_kwh': _toPrecision(turbineKwh!, 2),
+    if (turbineExportKwh != null)
+      'turbine_export_kwh': _toPrecision(turbineExportKwh!, 2),
     'energy_charges': _toPrecision(energyCharges, 2),
     'demand_charges': _toPrecision(demandCharges, 2),
     'fac_charges': _toPrecision(facCharges, 2),
@@ -229,6 +238,7 @@ class EnergyLogModel {
       exportKvah: _parseNullableDouble(map['export_kvah']),
       generationKwh: _parseNullableDouble(map['generation_kwh']),
       turbineKwh: _parseNullableDouble(map['turbine_kwh']),
+      turbineExportKwh: _parseNullableDouble(map['turbine_export_kwh']),
       energyCharges: _parseDouble(map['energy_charges']),
       demandCharges: _parseDouble(map['demand_charges']),
       facCharges: _parseDouble(map['fac_charges']),
@@ -266,6 +276,10 @@ class EnergyLogModel {
     if (exportKvah != null) 'export_kvah': (exportKvah! * 100).round() / 100,
     if (generationKwh != null)
       'generation_kwh': (generationKwh! * 100).round() / 100,
+    if (turbineKwh != null)
+      'turbine_kwh': (turbineKwh! * 100).round() / 100,
+    if (turbineExportKwh != null)
+      'turbine_export_kwh': (turbineExportKwh! * 100).round() / 100,
     'energy_charges': (energyCharges * 100).round() / 100,
     'demand_charges': (demandCharges * 100).round() / 100,
     'fac_charges': (facCharges * 100).round() / 100,
@@ -303,6 +317,8 @@ class EnergyLogModel {
       exportKwh: (json['export_kwh'] as num?)?.toDouble(),
       exportKvah: (json['export_kvah'] as num?)?.toDouble(),
       generationKwh: (json['generation_kwh'] as num?)?.toDouble(),
+      turbineKwh: (json['turbine_kwh'] as num?)?.toDouble(),
+      turbineExportKwh: (json['turbine_export_kwh'] as num?)?.toDouble(),
       energyCharges: (json['energy_charges'] as num?)?.toDouble() ?? 0,
       demandCharges: (json['demand_charges'] as num?)?.toDouble() ?? 0,
       facCharges: (json['fac_charges'] as num?)?.toDouble() ?? 0,
@@ -342,6 +358,7 @@ class EnergyLogModel {
     double? exportKvah,
     double? generationKwh,
     double? turbineKwh,
+    double? turbineExportKwh,
     List<double>? mdValues,
   }) {
     final pf = powerFactor ?? CalculationEngine.calculatePowerFactor(kwh, kvah);
@@ -444,6 +461,9 @@ class EnergyLogModel {
       turbineKwh: turbineKwh == null
           ? null
           : (turbineKwh * 100).round() / 100,
+      turbineExportKwh: turbineExportKwh == null
+          ? null
+          : (turbineExportKwh * 100).round() / 100,
       energyCharges: (energyCharges * 100).round() / 100,
       demandCharges: (demandCharges * 100).round() / 100,
       facCharges: (facCharges * 100).round() / 100,
@@ -520,6 +540,8 @@ class EnergyLogModel {
         exportKwh: m.exportKwh,
         exportKvah: m.exportKvah,
         generationKwh: m.generationKwh,
+        turbineKwh: m.turbineKwh,
+        turbineExportKwh: m.turbineExportKwh,
         energyCharges: m.energyCharges,
         demandCharges: m.demandCharges,
         facCharges: m.facCharges,

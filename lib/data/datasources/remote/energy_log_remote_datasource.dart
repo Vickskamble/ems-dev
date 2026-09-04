@@ -190,6 +190,11 @@ class EnergyLogRemoteDatasource {
         userId: log.userId,
         multiplyingFactor: newMf,
         mdValues: log.mdValues,
+        exportKwh: log.exportKwh,
+        exportKvah: log.exportKvah,
+        generationKwh: log.generationKwh,
+        turbineKwh: log.turbineKwh,
+        turbineExportKwh: log.turbineExportKwh,
       );
     }).toList();
 

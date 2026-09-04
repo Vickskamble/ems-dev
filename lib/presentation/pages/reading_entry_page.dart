@@ -49,6 +49,7 @@ class ReadingEntryPageState extends State<ReadingEntryPage> {
   final _exportKvahCtrl = TextEditingController();
   final _generationKwhCtrl = TextEditingController();
   final _turbineKwhCtrl = TextEditingController();
+  final _turbineExportKwhCtrl = TextEditingController();
 
   /// Previous cumulative readings fetched from the DB for the selected
   /// date/meter — read-only, never editable by the client.
@@ -71,7 +72,8 @@ class ReadingEntryPageState extends State<ReadingEntryPage> {
       _exportKwhCtrl.text.isNotEmpty ||
       _exportKvahCtrl.text.isNotEmpty ||
       _generationKwhCtrl.text.isNotEmpty ||
-      _turbineKwhCtrl.text.isNotEmpty;
+      _turbineKwhCtrl.text.isNotEmpty ||
+      _turbineExportKwhCtrl.text.isNotEmpty;
 
   @override
   void initState() {
@@ -134,6 +136,7 @@ class ReadingEntryPageState extends State<ReadingEntryPage> {
     _exportKvahCtrl.dispose();
     _generationKwhCtrl.dispose();
     _turbineKwhCtrl.dispose();
+    _turbineExportKwhCtrl.dispose();
     super.dispose();
   }
 
@@ -244,6 +247,7 @@ class ReadingEntryPageState extends State<ReadingEntryPage> {
     _exportKvahCtrl.clear();
     _generationKwhCtrl.clear();
     _turbineKwhCtrl.clear();
+    _turbineExportKwhCtrl.clear();
     setState(() {
       _loggedAt = DateTime.now();
       _prevCumulativeKwh = 0;
@@ -268,6 +272,29 @@ class ReadingEntryPageState extends State<ReadingEntryPage> {
         ? 'Enter a valid number'
         : null;
   }
+
+  bool _isSolarMeter(String name) {
+    final n = name.trim().toLowerCase();
+    return n.contains('solar');
+  }
+
+  bool _isTurbineMeter(String name) {
+    final n = name.trim().toLowerCase();
+    return n.contains('turbine') || n.contains('wind');
+  }
+
+  bool get _hasSolarMeter => _meters.any((m) => _isSolarMeter(m.name));
+  bool get _hasTurbineMeter => _meters.any((m) => _isTurbineMeter(m.name));
+
+  bool get _showSolarEntry =>
+      AppConfig.hasSolar &&
+      _hasSolarMeter &&
+      _isSolarMeter(_selectedMeter);
+
+  bool get _showTurbineEntry =>
+      AppConfig.hasTurbine &&
+      _hasTurbineMeter &&
+      _isTurbineMeter(_selectedMeter);
 
   bool get _noPreviousReading =>
       _prevCumulativeKwh <= 0 && _prevCumulativeKvah <= 0;
@@ -319,6 +346,9 @@ class ReadingEntryPageState extends State<ReadingEntryPage> {
     final turbineKwh = AppInputFormatters.parseNumber(
       _turbineKwhCtrl.text.trim(),
     );
+    final turbineExportKwh = AppInputFormatters.parseNumber(
+      _turbineExportKwhCtrl.text.trim(),
+    );
     final useMultiMd = AppConfig.useMultiMd;
     // Multi-MD: mdRecorded = max of T1-T4; mdValues keeps the breakdown.
     final mdValues = useMultiMd ? _multiMdValues : null;
@@ -345,6 +375,7 @@ class ReadingEntryPageState extends State<ReadingEntryPage> {
         exportKvah: exportKvah,
         generationKwh: generationKwh,
         turbineKwh: turbineKwh,
+        turbineExportKwh: turbineExportKwh,
         mdValues: mdValues,
       ),
     );
@@ -507,11 +538,66 @@ class ReadingEntryPageState extends State<ReadingEntryPage> {
                                     ),
                                   ],
                                 ),
-                              ),
+                            ),
                           ],
                         ),
                       ),
                       const SizedBox(height: 12),
+                      if (AppConfig.hasSolar && !_hasSolarMeter)
+                        Container(
+                          width: double.infinity,
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: Colors.orange.withValues(alpha: 0.25),
+                            ),
+                          ),
+                          child: Row(
+                            children: const [
+                              Icon(Icons.solar_power_outlined, size: 18, color: Colors.orange),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Solar enabled in profile — add a SOLAR meter in '
+                                  'Meter Management first to record solar/export '
+                                  'readings.',
+                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      if (AppConfig.hasTurbine && !_hasTurbineMeter)
+                        Container(
+                          width: double.infinity,
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: Colors.orange.withValues(alpha: 0.25),
+                            ),
+                          ),
+                          child: Row(
+                            children: const [
+                              Icon(Icons.air, size: 18, color: Colors.orange),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Turbine enabled in profile — add a TURBINE meter '
+                                  'in Meter Management first to record turbine '
+                                  'generation readings.',
+                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      const SizedBox(height: 8),
                       AppCard(
                         child: Row(
                           children: [
@@ -887,7 +973,7 @@ class ReadingEntryPageState extends State<ReadingEntryPage> {
                       const SizedBox(height: AppSpacing.xxl),
 
                       // ── Solar / Net Metering (only for solar sources) ──
-                      if (AppConfig.hasSolar) ...[
+                      if (_showSolarEntry) ...[
                       AppCard(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -932,6 +1018,27 @@ class ReadingEntryPageState extends State<ReadingEntryPage> {
                                     .textTheme
                                     .bodySmall
                                     ?.color,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.orange.withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: Colors.orange.withValues(alpha: 0.25),
+                                ),
+                              ),
+                              child: const Text(
+                                'Note: Record solar/export readings only on your '
+                                'dedicated SOLAR meter. Do not enter generation '
+                                'while a general (import) meter is selected.',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
                             ),
                             const SizedBox(height: 12),
@@ -990,7 +1097,7 @@ class ReadingEntryPageState extends State<ReadingEntryPage> {
                       ],
 
                       // ── Turbine generation (only for turbine sources) ──
-                      if (AppConfig.hasTurbine) ...[
+                      if (_showTurbineEntry) ...[
                       AppCard(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1019,12 +1126,45 @@ class ReadingEntryPageState extends State<ReadingEntryPage> {
                                     ?.color,
                               ),
                             ),
+                            const SizedBox(height: 10),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.orange.withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: Colors.orange.withValues(alpha: 0.25),
+                                ),
+                              ),
+                              child: const Text(
+                                'Note: Record turbine generation only on your '
+                                'dedicated TURBINE meter. Do not enter it while '
+                                'a general (import) meter is selected.',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
                             const SizedBox(height: 12),
                             AppTextField(
                               controller: _turbineKwhCtrl,
                               label: 'Turbine Generation kWh',
                               hint: 'Total turbine output',
                               prefixIcon: Icons.air,
+                              keyboardType: TextInputType.numberWithOptions(
+                                decimal: true,
+                              ),
+                              inputFormatters: [AppInputFormatters.numeric],
+                              validator: _optionalNumberValidator,
+                            ),
+                            const SizedBox(height: 12),
+                            AppTextField(
+                              controller: _turbineExportKwhCtrl,
+                              label: 'Turbine Export kWh',
+                              hint: 'Units fed back to grid',
+                              prefixIcon: Icons.sync,
                               keyboardType: TextInputType.numberWithOptions(
                                 decimal: true,
                               ),

@@ -40,6 +40,9 @@ class BillBreakdown {
   /// Turbine: total generation (MF-adjusted) for the billing period.
   final double totalTurbineKwh;
 
+  /// Turbine: total export to grid (MF-adjusted) for the billing period.
+  final double totalTurbineExportKwh;
+
   /// Payable in time (after PPD) — floored to the nearest ₹10 like the
   /// printed bill. 0 when the calculator did not produce one.
   final double payableEarly;
@@ -76,6 +79,7 @@ class BillBreakdown {
     this.totalExportKwh = 0,
     this.totalGenerationKwh = 0,
     this.totalTurbineKwh = 0,
+    this.totalTurbineExportKwh = 0,
     this.payableEarly = 0,
     this.payableAfterDpc = 0,
     required this.netBill,

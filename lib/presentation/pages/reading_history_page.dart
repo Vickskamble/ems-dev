@@ -45,8 +45,6 @@ class _ReadingHistoryPageState extends State<ReadingHistoryPage> {
         setState(() {
           _allLogs = sorted;
           _loadError = null;
-          final now = DateTime.now();
-          _selectedYear ??= now.year;
         });
       }
     } catch (e) {
@@ -527,6 +525,29 @@ class _ReadingHistoryPageState extends State<ReadingHistoryPage> {
           : '',
     );
     final formKey = GlobalKey<FormState>();
+    final exportKwhCtrl = TextEditingController(
+      text: log.exportKwh == null
+          ? ''
+          : log.exportKwh!.toStringAsFixed(2),
+    );
+    final exportKvahCtrl = TextEditingController(
+      text: log.exportKvah == null
+          ? ''
+          : log.exportKvah!.toStringAsFixed(2),
+    );
+    final generationKwhCtrl = TextEditingController(
+      text: log.generationKwh == null
+          ? ''
+          : log.generationKwh!.toStringAsFixed(2),
+    );
+    final turbineKwhCtrl = TextEditingController(
+      text: log.turbineKwh == null ? '' : log.turbineKwh!.toStringAsFixed(2),
+    );
+    final turbineExportKwhCtrl = TextEditingController(
+      text: log.turbineExportKwh == null
+          ? ''
+          : log.turbineExportKwh!.toStringAsFixed(2),
+    );
 
     await showDialog<void>(
       context: context,
@@ -704,6 +725,100 @@ class _ReadingHistoryPageState extends State<ReadingHistoryPage> {
                       ],
                     ),
                     const SizedBox(height: 12),
+                    if (AppConfig.hasSolar &&
+                        (log.meterName.trim().toLowerCase().contains('solar') ||
+                            log.exportKwh != null ||
+                            log.generationKwh != null)) ...[
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              controller: exportKwhCtrl,
+                              decoration: const InputDecoration(
+                                labelText: 'Export kWh',
+                                prefixIcon: Icon(Icons.solar_power_outlined),
+                              ),
+                              keyboardType: TextInputType.number,
+                              validator: (v) {
+                                if (v == null || v.trim().isEmpty) return null;
+                                return double.tryParse(v.trim()) == null
+                                    ? 'Enter a valid number'
+                                    : null;
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: TextFormField(
+                              controller: exportKvahCtrl,
+                              decoration: const InputDecoration(
+                                labelText: 'Export kVAh',
+                                prefixIcon: Icon(Icons.solar_power_outlined),
+                              ),
+                              keyboardType: TextInputType.number,
+                              validator: (v) {
+                                if (v == null || v.trim().isEmpty) return null;
+                                return double.tryParse(v.trim()) == null
+                                    ? 'Enter a valid number'
+                                    : null;
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: generationKwhCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Solar Generation kWh',
+                          prefixIcon: Icon(Icons.bolt_outlined),
+                        ),
+                        keyboardType: TextInputType.number,
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) return null;
+                          return double.tryParse(v.trim()) == null
+                              ? 'Enter a valid number'
+                              : null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    if (AppConfig.hasTurbine &&
+                        (log.meterName.trim().toLowerCase().contains('turbine') ||
+                            log.meterName.trim().toLowerCase().contains('wind') ||
+                            log.turbineKwh != null ||
+                            log.turbineExportKwh != null)) ...[
+                      TextFormField(
+                        controller: turbineKwhCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Turbine Generation kWh',
+                          prefixIcon: Icon(Icons.air),
+                        ),
+                        keyboardType: TextInputType.number,
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) return null;
+                          return double.tryParse(v.trim()) == null
+                              ? 'Enter a valid number'
+                              : null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: turbineExportKwhCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Turbine Export kWh',
+                          prefixIcon: Icon(Icons.sync),
+                        ),
+                        keyboardType: TextInputType.number,
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) return null;
+                          return double.tryParse(v.trim()) == null
+                              ? 'Enter a valid number'
+                              : null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                     ListTile(
                       contentPadding: EdgeInsets.zero,
                       leading: const Icon(Icons.event_outlined, size: 20),
@@ -767,6 +882,15 @@ class _ReadingHistoryPageState extends State<ReadingHistoryPage> {
                   } else {
                     mdRecorded = double.parse(mdCtrl.text.trim());
                   }
+                  final showSolarEdit = AppConfig.hasSolar &&
+                      (log.meterName.trim().toLowerCase().contains('solar') ||
+                          log.exportKwh != null ||
+                          log.generationKwh != null);
+                  final showTurbineEdit = AppConfig.hasTurbine &&
+                      (log.meterName.trim().toLowerCase().contains('turbine') ||
+                          log.meterName.trim().toLowerCase().contains('wind') ||
+                          log.turbineKwh != null ||
+                          log.turbineExportKwh != null);
                   final updatedModel = EnergyLogModel.create(
                     id: log.id,
                     meterName: log.meterName,
@@ -783,6 +907,21 @@ class _ReadingHistoryPageState extends State<ReadingHistoryPage> {
                     isSynced: log.isSynced,
                     multiplyingFactor: log.multiplyingFactor,
                     mdValues: mdValues ?? log.mdValues,
+                    exportKwh: showSolarEdit
+                        ? double.tryParse(exportKwhCtrl.text.trim())
+                        : log.exportKwh,
+                    exportKvah: showSolarEdit
+                        ? double.tryParse(exportKvahCtrl.text.trim())
+                        : log.exportKvah,
+                    generationKwh: showSolarEdit
+                        ? double.tryParse(generationKwhCtrl.text.trim())
+                        : log.generationKwh,
+                    turbineKwh: showTurbineEdit
+                        ? double.tryParse(turbineKwhCtrl.text.trim())
+                        : log.turbineKwh,
+                    turbineExportKwh: showTurbineEdit
+                        ? double.tryParse(turbineExportKwhCtrl.text.trim())
+                        : log.turbineExportKwh,
                   );
                   Navigator.pop(dialogCtx);
                   try {

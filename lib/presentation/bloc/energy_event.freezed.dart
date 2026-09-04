@@ -119,11 +119,11 @@ return submitManualReadingForm(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function()?  loadInitialDashboardData,TResult Function( String meterName,  double currentKwh,  double previousKwh,  double currentKvah,  double previousKvah,  double rkvarhLag,  double rkvarhLead,  double mdRecorded,  DateTime loggedAt,  double? powerFactor,  double? exportKwh,  double? exportKvah,  double? generationKwh,  double? turbineKwh,  List<double>? mdValues)?  submitManualReadingForm,required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function()?  loadInitialDashboardData,TResult Function( String meterName,  double currentKwh,  double previousKwh,  double currentKvah,  double previousKvah,  double rkvarhLag,  double rkvarhLead,  double mdRecorded,  DateTime loggedAt,  double? powerFactor,  double? exportKwh,  double? exportKvah,  double? generationKwh,  double? turbineKwh,  double? turbineExportKwh,  List<double>? mdValues)?  submitManualReadingForm,required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case LoadInitialDashboardData() when loadInitialDashboardData != null:
 return loadInitialDashboardData();case SubmitManualReadingForm() when submitManualReadingForm != null:
-return submitManualReadingForm(_that.meterName,_that.currentKwh,_that.previousKwh,_that.currentKvah,_that.previousKvah,_that.rkvarhLag,_that.rkvarhLead,_that.mdRecorded,_that.loggedAt,_that.powerFactor,_that.exportKwh,_that.exportKvah,_that.generationKwh,_that.turbineKwh,_that.mdValues);case _:
+return submitManualReadingForm(_that.meterName,_that.currentKwh,_that.previousKwh,_that.currentKvah,_that.previousKvah,_that.rkvarhLag,_that.rkvarhLead,_that.mdRecorded,_that.loggedAt,_that.powerFactor,_that.exportKwh,_that.exportKvah,_that.generationKwh,_that.turbineKwh,_that.turbineExportKwh,_that.mdValues);case _:
   return orElse();
 
 }
@@ -141,11 +141,11 @@ return submitManualReadingForm(_that.meterName,_that.currentKwh,_that.previousKw
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function()  loadInitialDashboardData,required TResult Function( String meterName,  double currentKwh,  double previousKwh,  double currentKvah,  double previousKvah,  double rkvarhLag,  double rkvarhLead,  double mdRecorded,  DateTime loggedAt,  double? powerFactor,  double? exportKwh,  double? exportKvah,  double? generationKwh,  double? turbineKwh,  List<double>? mdValues)  submitManualReadingForm,}) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function()  loadInitialDashboardData,required TResult Function( String meterName,  double currentKwh,  double previousKwh,  double currentKvah,  double previousKvah,  double rkvarhLag,  double rkvarhLead,  double mdRecorded,  DateTime loggedAt,  double? powerFactor,  double? exportKwh,  double? exportKvah,  double? generationKwh,  double? turbineKwh,  double? turbineExportKwh,  List<double>? mdValues)  submitManualReadingForm,}) {final _that = this;
 switch (_that) {
 case LoadInitialDashboardData():
 return loadInitialDashboardData();case SubmitManualReadingForm():
-return submitManualReadingForm(_that.meterName,_that.currentKwh,_that.previousKwh,_that.currentKvah,_that.previousKvah,_that.rkvarhLag,_that.rkvarhLead,_that.mdRecorded,_that.loggedAt,_that.powerFactor,_that.exportKwh,_that.exportKvah,_that.generationKwh,_that.turbineKwh,_that.mdValues);}
+return submitManualReadingForm(_that.meterName,_that.currentKwh,_that.previousKwh,_that.currentKvah,_that.previousKvah,_that.rkvarhLag,_that.rkvarhLead,_that.mdRecorded,_that.loggedAt,_that.powerFactor,_that.exportKwh,_that.exportKvah,_that.generationKwh,_that.turbineKwh,_that.turbineExportKwh,_that.mdValues);}
 }
 /// A variant of `when` that fallback to returning `null`
 ///
@@ -159,11 +159,11 @@ return submitManualReadingForm(_that.meterName,_that.currentKwh,_that.previousKw
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function()?  loadInitialDashboardData,TResult? Function( String meterName,  double currentKwh,  double previousKwh,  double currentKvah,  double previousKvah,  double rkvarhLag,  double rkvarhLead,  double mdRecorded,  DateTime loggedAt,  double? powerFactor,  double? exportKwh,  double? exportKvah,  double? generationKwh,  double? turbineKwh,  List<double>? mdValues)?  submitManualReadingForm,}) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function()?  loadInitialDashboardData,TResult? Function( String meterName,  double currentKwh,  double previousKwh,  double currentKvah,  double previousKvah,  double rkvarhLag,  double rkvarhLead,  double mdRecorded,  DateTime loggedAt,  double? powerFactor,  double? exportKwh,  double? exportKvah,  double? generationKwh,  double? turbineKwh,  double? turbineExportKwh,  List<double>? mdValues)?  submitManualReadingForm,}) {final _that = this;
 switch (_that) {
 case LoadInitialDashboardData() when loadInitialDashboardData != null:
 return loadInitialDashboardData();case SubmitManualReadingForm() when submitManualReadingForm != null:
-return submitManualReadingForm(_that.meterName,_that.currentKwh,_that.previousKwh,_that.currentKvah,_that.previousKvah,_that.rkvarhLag,_that.rkvarhLead,_that.mdRecorded,_that.loggedAt,_that.powerFactor,_that.exportKwh,_that.exportKvah,_that.generationKwh,_that.turbineKwh,_that.mdValues);case _:
+return submitManualReadingForm(_that.meterName,_that.currentKwh,_that.previousKwh,_that.currentKvah,_that.previousKvah,_that.rkvarhLag,_that.rkvarhLead,_that.mdRecorded,_that.loggedAt,_that.powerFactor,_that.exportKwh,_that.exportKvah,_that.generationKwh,_that.turbineKwh,_that.turbineExportKwh,_that.mdValues);case _:
   return null;
 
 }
@@ -207,7 +207,7 @@ String toString() {
 
 
 class SubmitManualReadingForm implements EnergyEvent {
-  const SubmitManualReadingForm({required this.meterName, required this.currentKwh, required this.previousKwh, required this.currentKvah, required this.previousKvah, required this.rkvarhLag, required this.rkvarhLead, required this.mdRecorded, required this.loggedAt, this.powerFactor, this.exportKwh, this.exportKvah, this.generationKwh, this.turbineKwh, final  List<double>? mdValues}): _mdValues = mdValues;
+  const SubmitManualReadingForm({required this.meterName, required this.currentKwh, required this.previousKwh, required this.currentKvah, required this.previousKvah, required this.rkvarhLag, required this.rkvarhLead, required this.mdRecorded, required this.loggedAt, this.powerFactor, this.exportKwh, this.exportKvah, this.generationKwh, this.turbineKwh, this.turbineExportKwh, final  List<double>? mdValues}): _mdValues = mdValues;
   
 
  final  String meterName;
@@ -224,6 +224,7 @@ class SubmitManualReadingForm implements EnergyEvent {
  final  double? exportKvah;
  final  double? generationKwh;
  final  double? turbineKwh;
+ final  double? turbineExportKwh;
  final  List<double>? _mdValues;
  List<double>? get mdValues {
   final value = _mdValues;
@@ -244,16 +245,16 @@ $SubmitManualReadingFormCopyWith<SubmitManualReadingForm> get copyWith => _$Subm
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is SubmitManualReadingForm&&(identical(other.meterName, meterName) || other.meterName == meterName)&&(identical(other.currentKwh, currentKwh) || other.currentKwh == currentKwh)&&(identical(other.previousKwh, previousKwh) || other.previousKwh == previousKwh)&&(identical(other.currentKvah, currentKvah) || other.currentKvah == currentKvah)&&(identical(other.previousKvah, previousKvah) || other.previousKvah == previousKvah)&&(identical(other.rkvarhLag, rkvarhLag) || other.rkvarhLag == rkvarhLag)&&(identical(other.rkvarhLead, rkvarhLead) || other.rkvarhLead == rkvarhLead)&&(identical(other.mdRecorded, mdRecorded) || other.mdRecorded == mdRecorded)&&(identical(other.loggedAt, loggedAt) || other.loggedAt == loggedAt)&&(identical(other.powerFactor, powerFactor) || other.powerFactor == powerFactor)&&(identical(other.exportKwh, exportKwh) || other.exportKwh == exportKwh)&&(identical(other.exportKvah, exportKvah) || other.exportKvah == exportKvah)&&(identical(other.generationKwh, generationKwh) || other.generationKwh == generationKwh)&&(identical(other.turbineKwh, turbineKwh) || other.turbineKwh == turbineKwh)&&const DeepCollectionEquality().equals(other._mdValues, _mdValues));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is SubmitManualReadingForm&&(identical(other.meterName, meterName) || other.meterName == meterName)&&(identical(other.currentKwh, currentKwh) || other.currentKwh == currentKwh)&&(identical(other.previousKwh, previousKwh) || other.previousKwh == previousKwh)&&(identical(other.currentKvah, currentKvah) || other.currentKvah == currentKvah)&&(identical(other.previousKvah, previousKvah) || other.previousKvah == previousKvah)&&(identical(other.rkvarhLag, rkvarhLag) || other.rkvarhLag == rkvarhLag)&&(identical(other.rkvarhLead, rkvarhLead) || other.rkvarhLead == rkvarhLead)&&(identical(other.mdRecorded, mdRecorded) || other.mdRecorded == mdRecorded)&&(identical(other.loggedAt, loggedAt) || other.loggedAt == loggedAt)&&(identical(other.powerFactor, powerFactor) || other.powerFactor == powerFactor)&&(identical(other.exportKwh, exportKwh) || other.exportKwh == exportKwh)&&(identical(other.exportKvah, exportKvah) || other.exportKvah == exportKvah)&&(identical(other.generationKwh, generationKwh) || other.generationKwh == generationKwh)&&(identical(other.turbineKwh, turbineKwh) || other.turbineKwh == turbineKwh)&&(identical(other.turbineExportKwh, turbineExportKwh) || other.turbineExportKwh == turbineExportKwh)&&const DeepCollectionEquality().equals(other._mdValues, _mdValues));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,meterName,currentKwh,previousKwh,currentKvah,previousKvah,rkvarhLag,rkvarhLead,mdRecorded,loggedAt,powerFactor,exportKwh,exportKvah,generationKwh,turbineKwh,const DeepCollectionEquality().hash(_mdValues));
+int get hashCode => Object.hash(runtimeType,meterName,currentKwh,previousKwh,currentKvah,previousKvah,rkvarhLag,rkvarhLead,mdRecorded,loggedAt,powerFactor,exportKwh,exportKvah,generationKwh,turbineKwh,turbineExportKwh,const DeepCollectionEquality().hash(_mdValues));
 
 @override
 String toString() {
-  return 'EnergyEvent.submitManualReadingForm(meterName: $meterName, currentKwh: $currentKwh, previousKwh: $previousKwh, currentKvah: $currentKvah, previousKvah: $previousKvah, rkvarhLag: $rkvarhLag, rkvarhLead: $rkvarhLead, mdRecorded: $mdRecorded, loggedAt: $loggedAt, powerFactor: $powerFactor, exportKwh: $exportKwh, exportKvah: $exportKvah, generationKwh: $generationKwh, turbineKwh: $turbineKwh, mdValues: $mdValues)';
+  return 'EnergyEvent.submitManualReadingForm(meterName: $meterName, currentKwh: $currentKwh, previousKwh: $previousKwh, currentKvah: $currentKvah, previousKvah: $previousKvah, rkvarhLag: $rkvarhLag, rkvarhLead: $rkvarhLead, mdRecorded: $mdRecorded, loggedAt: $loggedAt, powerFactor: $powerFactor, exportKwh: $exportKwh, exportKvah: $exportKvah, generationKwh: $generationKwh, turbineKwh: $turbineKwh, turbineExportKwh: $turbineExportKwh, mdValues: $mdValues)';
 }
 
 
@@ -264,7 +265,7 @@ abstract mixin class $SubmitManualReadingFormCopyWith<$Res> implements $EnergyEv
   factory $SubmitManualReadingFormCopyWith(SubmitManualReadingForm value, $Res Function(SubmitManualReadingForm) _then) = _$SubmitManualReadingFormCopyWithImpl;
 @useResult
 $Res call({
- String meterName, double currentKwh, double previousKwh, double currentKvah, double previousKvah, double rkvarhLag, double rkvarhLead, double mdRecorded, DateTime loggedAt, double? powerFactor, double? exportKwh, double? exportKvah, double? generationKwh, double? turbineKwh, List<double>? mdValues
+ String meterName, double currentKwh, double previousKwh, double currentKvah, double previousKvah, double rkvarhLag, double rkvarhLead, double mdRecorded, DateTime loggedAt, double? powerFactor, double? exportKwh, double? exportKvah, double? generationKwh, double? turbineKwh, double? turbineExportKwh, List<double>? mdValues
 });
 
 
@@ -281,7 +282,7 @@ class _$SubmitManualReadingFormCopyWithImpl<$Res>
 
 /// Create a copy of EnergyEvent
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') $Res call({Object? meterName = null,Object? currentKwh = null,Object? previousKwh = null,Object? currentKvah = null,Object? previousKvah = null,Object? rkvarhLag = null,Object? rkvarhLead = null,Object? mdRecorded = null,Object? loggedAt = null,Object? powerFactor = freezed,Object? exportKwh = freezed,Object? exportKvah = freezed,Object? generationKwh = freezed,Object? turbineKwh = freezed,Object? mdValues = freezed,}) {
+@pragma('vm:prefer-inline') $Res call({Object? meterName = null,Object? currentKwh = null,Object? previousKwh = null,Object? currentKvah = null,Object? previousKvah = null,Object? rkvarhLag = null,Object? rkvarhLead = null,Object? mdRecorded = null,Object? loggedAt = null,Object? powerFactor = freezed,Object? exportKwh = freezed,Object? exportKvah = freezed,Object? generationKwh = freezed,Object? turbineKwh = freezed,Object? turbineExportKwh = freezed,Object? mdValues = freezed,}) {
   return _then(SubmitManualReadingForm(
 meterName: null == meterName ? _self.meterName : meterName // ignore: cast_nullable_to_non_nullable
 as String,currentKwh: null == currentKwh ? _self.currentKwh : currentKwh // ignore: cast_nullable_to_non_nullable
@@ -297,6 +298,7 @@ as double?,exportKwh: freezed == exportKwh ? _self.exportKwh : exportKwh // igno
 as double?,exportKvah: freezed == exportKvah ? _self.exportKvah : exportKvah // ignore: cast_nullable_to_non_nullable
 as double?,generationKwh: freezed == generationKwh ? _self.generationKwh : generationKwh // ignore: cast_nullable_to_non_nullable
 as double?,turbineKwh: freezed == turbineKwh ? _self.turbineKwh : turbineKwh // ignore: cast_nullable_to_non_nullable
+as double?,turbineExportKwh: freezed == turbineExportKwh ? _self.turbineExportKwh : turbineExportKwh // ignore: cast_nullable_to_non_nullable
 as double?,mdValues: freezed == mdValues ? _self._mdValues : mdValues // ignore: cast_nullable_to_non_nullable
 as List<double>?,
   ));

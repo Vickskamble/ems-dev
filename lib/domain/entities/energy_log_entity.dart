@@ -34,6 +34,10 @@ class EnergyLogEntity {
   /// Subtracted from import for net billing (same as solar export).
   final double? turbineKwh;
 
+  /// Turbine export in kWh — units fed back to grid, before MF.
+  /// Subtracted from import for net billing (same as solar export).
+  final double? turbineExportKwh;
+
   final double energyCharges;
   final double demandCharges;
   final double facCharges;
@@ -78,6 +82,7 @@ class EnergyLogEntity {
     this.exportKvah,
     this.generationKwh,
     this.turbineKwh,
+    this.turbineExportKwh,
     this.energyCharges = 0,
     this.demandCharges = 0,
     this.facCharges = 0,
@@ -115,6 +120,7 @@ class EnergyLogEntity {
     double? exportKvah,
     double? generationKwh,
     double? turbineKwh,
+    double? turbineExportKwh,
     double? multiplyingFactor,
     double? energyCharges,
     double? demandCharges,
@@ -151,6 +157,7 @@ class EnergyLogEntity {
       exportKvah: exportKvah ?? this.exportKvah,
       generationKwh: generationKwh ?? this.generationKwh,
       turbineKwh: turbineKwh ?? this.turbineKwh,
+      turbineExportKwh: turbineExportKwh ?? this.turbineExportKwh,
       energyCharges: energyCharges ?? this.energyCharges,
       demandCharges: demandCharges ?? this.demandCharges,
       facCharges: facCharges ?? this.facCharges,
