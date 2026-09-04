@@ -151,12 +151,14 @@ class _AppSidebarState extends State<AppSidebar> {
                 ),
                 if (!widget.isCollapsed) ...[
                   const SizedBox(width: 10),
-                  const Text(
+                  Text(
                     'PowerEMS',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
-                      color: AppColors.textOnDark,
+                      color: widget.isDark
+                          ? AppColors.textOnDark
+                          : AppColors.primary,
                     ),
                   ),
                 ],

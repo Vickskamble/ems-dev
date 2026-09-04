@@ -48,31 +48,6 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
       ),
       child: Row(
         children: [
-          const Padding(
-            padding: EdgeInsets.only(left: AppSpacing.md),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.bolt_rounded, size: 22, color: AppColors.primary),
-                SizedBox(width: 6),
-                Text(
-                  'PowerEMS',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.primary,
-                    letterSpacing: 0.3,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            width: 1,
-            height: 26,
-            margin: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-            color: isDark ? AppColors.borderDark : AppColors.borderLight,
-          ),
           ?leading,
           if (onMenuTap != null)
             IconButton(
