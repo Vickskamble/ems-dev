@@ -116,9 +116,12 @@ class ReadingEntryPageState extends State<ReadingEntryPage> {
   }
 
   /// Parsed T1-T4 values, defaulting to 0 for blanks (multi-MD feature).
-  List<double> get _multiMdValues => [_mdT1Ctrl, _mdT2Ctrl, _mdT3Ctrl, _mdT4Ctrl]
-      .map((c) => AppInputFormatters.parseNumber(c.text.trim()) ?? 0)
-      .toList();
+  List<double> get _multiMdValues => [
+    _mdT1Ctrl,
+    _mdT2Ctrl,
+    _mdT3Ctrl,
+    _mdT4Ctrl,
+  ].map((c) => AppInputFormatters.parseNumber(c.text.trim()) ?? 0).toList();
 
   @override
   void dispose() {
@@ -188,10 +191,7 @@ class ReadingEntryPageState extends State<ReadingEntryPage> {
       // Previous = the meter's ACTUAL cumulative reading recorded BEFORE the
       // selected date — computed from the DB (stored reading, or running sum
       // for legacy rows). Never trusted from the form.
-      final prev = await energyRepo.getPreviousCumulative(
-        meterName,
-        _loggedAt,
-      );
+      final prev = await energyRepo.getPreviousCumulative(meterName, _loggedAt);
       if (mounted) {
         setState(() {
           _prevCumulativeKwh = prev.kwh;
@@ -283,13 +283,80 @@ class ReadingEntryPageState extends State<ReadingEntryPage> {
     return n.contains('turbine') || n.contains('wind');
   }
 
+  /// Classifies the selected meter so the form shows type-specific fields.
+  _MeterType get _selectedMeterType {
+    if (_isSolarMeter(_selectedMeter)) return _MeterType.solar;
+    if (_isTurbineMeter(_selectedMeter)) return _MeterType.turbine;
+    return _MeterType.grid;
+  }
+
+  bool get _isGridSelected => _selectedMeterType == _MeterType.grid;
+
+  Widget _buildMeterTypeBanner() {
+    final t = _selectedMeterType;
+    final dim = AppColors.dim(context);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: t.color.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border.all(color: t.color.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: t.color.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+            ),
+            child: Icon(t.icon, size: 20, color: t.color),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  t.label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: t == _MeterType.grid ? dim : t.color,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(t.subtitle, style: TextStyle(fontSize: 11, color: dim)),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: t.color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+            ),
+            child: Text(
+              t == _MeterType.grid ? 'IMPORT' : 'RENEWABLE',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.5,
+                color: t.color,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   bool get _hasSolarMeter => _meters.any((m) => _isSolarMeter(m.name));
   bool get _hasTurbineMeter => _meters.any((m) => _isTurbineMeter(m.name));
 
   bool get _showSolarEntry =>
-      AppConfig.hasSolar &&
-      _hasSolarMeter &&
-      _isSolarMeter(_selectedMeter);
+      AppConfig.hasSolar && _hasSolarMeter && _isSolarMeter(_selectedMeter);
 
   bool get _showTurbineEntry =>
       AppConfig.hasTurbine &&
@@ -445,8 +512,7 @@ class ReadingEntryPageState extends State<ReadingEntryPage> {
               else
                 Form(
                   key: _formKey,
-                  autovalidateMode:
-                      AutovalidateMode.onUserInteraction,
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -538,11 +604,13 @@ class ReadingEntryPageState extends State<ReadingEntryPage> {
                                     ),
                                   ],
                                 ),
-                            ),
+                              ),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: AppSpacing.md),
+                      _buildMeterTypeBanner(),
+                      const SizedBox(height: AppSpacing.md),
                       if (AppConfig.hasSolar && !_hasSolarMeter)
                         Container(
                           width: double.infinity,
@@ -557,14 +625,21 @@ class ReadingEntryPageState extends State<ReadingEntryPage> {
                           ),
                           child: Row(
                             children: const [
-                              Icon(Icons.solar_power_outlined, size: 18, color: Colors.orange),
+                              Icon(
+                                Icons.solar_power_outlined,
+                                size: 18,
+                                color: Colors.orange,
+                              ),
                               SizedBox(width: 8),
                               Expanded(
                                 child: Text(
                                   'Solar enabled in profile — add a SOLAR meter in '
                                   'Meter Management first to record solar/export '
                                   'readings.',
-                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
                               ),
                             ],
@@ -591,7 +666,10 @@ class ReadingEntryPageState extends State<ReadingEntryPage> {
                                   'Turbine enabled in profile — add a TURBINE meter '
                                   'in Meter Management first to record turbine '
                                   'generation readings.',
-                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
                               ),
                             ],
@@ -620,9 +698,9 @@ class ReadingEntryPageState extends State<ReadingEntryPage> {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    DateFormat('dd/MM/yyyy, hh:mm a').format(
-                                      _loggedAt,
-                                    ),
+                                    DateFormat(
+                                      'dd/MM/yyyy, hh:mm a',
+                                    ).format(_loggedAt),
                                     style: const TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w600,
@@ -642,252 +720,457 @@ class ReadingEntryPageState extends State<ReadingEntryPage> {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      AppCard(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Energy Readings',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
+                      const SizedBox(height: AppSpacing.md),
+                      if (_isGridSelected) ...[
+                        AppCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.bolt_rounded,
+                                    size: 18,
+                                    color: AppColors.primary,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  const Text(
+                                    'Energy Readings',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                            const SizedBox(height: 12),
-                            AppTextField(
-                              controller: _currentKwhCtrl,
-                              label: 'Current kWh Reading',
-                              hint: 'Meter display value',
-                              prefixIcon: Icons.bolt,
-                              keyboardType: TextInputType.numberWithOptions(
-                                decimal: true,
-                              ),
-                              inputFormatters: [AppInputFormatters.numeric],
-                              validator: _requiredNumberValidator,
-                            ),
-                            const SizedBox(height: 12),
-                            AppTextField(
-                              controller: _currentKvahCtrl,
-                              label: 'Current kVAh Reading',
-                              hint: 'Meter display value',
-                              prefixIcon: Icons.electrical_services,
-                              keyboardType: TextInputType.numberWithOptions(
-                                decimal: true,
-                              ),
-                              inputFormatters: [AppInputFormatters.numeric],
-                              validator: _requiredNumberValidator,
-                            ),
-                            if (_noPreviousReading) ...[
                               const SizedBox(height: 12),
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: Colors.orange.withValues(alpha: 0.08),
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
-                                    color: Colors.orange.withValues(alpha: 0.35),
+                              AppTextField(
+                                controller: _currentKwhCtrl,
+                                label: 'Current kWh Reading',
+                                hint: 'Meter display value',
+                                prefixIcon: Icons.bolt,
+                                keyboardType: TextInputType.numberWithOptions(
+                                  decimal: true,
+                                ),
+                                inputFormatters: [AppInputFormatters.numeric],
+                                validator: _requiredNumberValidator,
+                              ),
+                              const SizedBox(height: 12),
+                              AppTextField(
+                                controller: _currentKvahCtrl,
+                                label: 'Current kVAh Reading',
+                                hint: 'Meter display value',
+                                prefixIcon: Icons.electrical_services,
+                                keyboardType: TextInputType.numberWithOptions(
+                                  decimal: true,
+                                ),
+                                inputFormatters: [AppInputFormatters.numeric],
+                                validator: _requiredNumberValidator,
+                              ),
+                              if (_noPreviousReading) ...[
+                                const SizedBox(height: 12),
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.orange.withValues(
+                                      alpha: 0.08,
+                                    ),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: Colors.orange.withValues(
+                                        alpha: 0.35,
+                                      ),
+                                    ),
+                                  ),
+                                  child: const Row(
+                                    children: [
+                                      Icon(
+                                        Icons.warning_amber_rounded,
+                                        size: 20,
+                                        color: Colors.orange,
+                                      ),
+                                      SizedBox(width: 10),
+                                      Expanded(
+                                        child: Text(
+                                          'No previous reading found — this entry '
+                                          'will be saved with 0 units. Consumption '
+                                          'will be calculated when the next reading '
+                                          'is recorded.',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                child: const Row(
-                                  children: [
-                                    Icon(
-                                      Icons.warning_amber_rounded,
-                                      size: 20,
-                                      color: Colors.orange,
+                              ] else if (_diffKwh != null ||
+                                  _diffKvah != null) ...[
+                                const SizedBox(height: 12),
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary.withValues(
+                                      alpha: 0.06,
                                     ),
-                                    SizedBox(width: 10),
-                                    Expanded(
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: AppColors.primary.withValues(
+                                        alpha: 0.2,
+                                      ),
+                                    ),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.compare_arrows_rounded,
+                                            size: 18,
+                                            color: AppColors.primary,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              'Consumption (Current − Previous)',
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            '${(_diffKwh ?? 0).toStringAsFixed(2)} kWh · '
+                                            '${(_diffKvah ?? 0).toStringAsFixed(2)} kVAh',
+                                            style: TextStyle(
+                                              fontSize: 12.5,
+                                              fontWeight: FontWeight.w700,
+                                              color:
+                                                  (_diffKwh ?? 0) < 0 ||
+                                                      (_diffKvah ?? 0) < 0
+                                                  ? AppColors.danger
+                                                  : AppColors.success,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            Icons.history,
+                                            size: 14,
+                                            color: AppColors.dim(context),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              _prevFetchFailed
+                                                  ? 'Couldn\'t fetch previous reading — check your connection. Consumption shown here may be inaccurate.'
+                                                  : 'Previous (auto, from DB): '
+                                                        '${_prevCumulativeKwh.toStringAsFixed(2)} kWh · '
+                                                        '${_prevCumulativeKvah.toStringAsFixed(2)} kVAh',
+                                              style: TextStyle(
+                                                fontSize: 11.5,
+                                                color: _prevFetchFailed
+                                                    ? AppColors.warningText
+                                                    : AppColors.dim(context),
+                                                fontWeight: _prevFetchFailed
+                                                    ? FontWeight.w600
+                                                    : FontWeight.w400,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        AppCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.speed_rounded,
+                                    size: 18,
+                                    color: AppColors.kpiPower,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  const Text(
+                                    'Power Quality',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: AppTextField(
+                                      controller: _rkvarhLagCtrl,
+                                      label: 'rkVARh (Lag)',
+                                      prefixIcon: Icons.warning_outlined,
+                                      keyboardType:
+                                          TextInputType.numberWithOptions(
+                                            decimal: true,
+                                          ),
+                                      inputFormatters: [
+                                        AppInputFormatters.numeric,
+                                      ],
+                                      validator: _optionalNumberValidator,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: AppTextField(
+                                      controller: _rkvarhLeadCtrl,
+                                      label: 'rkVARh (Lead)',
+                                      prefixIcon: Icons.check_circle_outline,
+                                      keyboardType:
+                                          TextInputType.numberWithOptions(
+                                            decimal: true,
+                                          ),
+                                      inputFormatters: [
+                                        AppInputFormatters.numeric,
+                                      ],
+                                      validator: _optionalNumberValidator,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              if (AppConfig.useMultiMd) ...[
+                                Row(
+                                  children: [
+                                    const Expanded(
                                       child: Text(
-                                        'No previous reading found — this entry '
-                                        'will be saved with 0 units. Consumption '
-                                        'will be calculated when the next reading '
-                                        'is recorded.',
+                                        'MD Recorded (kVA) — enter all 4 phases',
                                         style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w500,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
                                         ),
+                                      ),
+                                    ),
+                                    if (_multiMdMax != null)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 3,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.primary.withValues(
+                                            alpha: 0.1,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          'Max: ${_multiMdMax!.toStringAsFixed(1)}',
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w700,
+                                            color: AppColors.primary,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: AppTextField(
+                                        controller: _mdT1Ctrl,
+                                        label: 'MD T1 (kVA)',
+                                        hint: 'Phase 1',
+                                        prefixIcon: Icons.trending_up,
+                                        keyboardType:
+                                            TextInputType.numberWithOptions(
+                                              decimal: true,
+                                            ),
+                                        inputFormatters: [
+                                          AppInputFormatters.numeric,
+                                        ],
+                                        validator: _optionalNumberValidator,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: AppTextField(
+                                        controller: _mdT2Ctrl,
+                                        label: 'MD T2 (kVA)',
+                                        hint: 'Phase 2',
+                                        prefixIcon: Icons.trending_up,
+                                        keyboardType:
+                                            TextInputType.numberWithOptions(
+                                              decimal: true,
+                                            ),
+                                        inputFormatters: [
+                                          AppInputFormatters.numeric,
+                                        ],
+                                        validator: _optionalNumberValidator,
                                       ),
                                     ),
                                   ],
                                 ),
-                              ),
-                            ] else if (_diffKwh != null ||
-                                _diffKvah != null) ...[
-                              const SizedBox(height: 12),
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: AppColors.primary.withValues(
-                                    alpha: 0.06,
-                                  ),
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
-                                    color: AppColors.primary.withValues(
-                                      alpha: 0.2,
-                                    ),
-                                  ),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                const SizedBox(height: 12),
+                                Row(
                                   children: [
-                                    Row(
-                                      children: [
-                                        const Icon(
-                                          Icons.compare_arrows_rounded,
-                                          size: 18,
-                                          color: AppColors.primary,
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: Text(
-                                            'Consumption (Current − Previous)',
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w600,
+                                    Expanded(
+                                      child: AppTextField(
+                                        controller: _mdT3Ctrl,
+                                        label: 'MD T3 (kVA)',
+                                        hint: 'Phase 3',
+                                        prefixIcon: Icons.trending_up,
+                                        keyboardType:
+                                            TextInputType.numberWithOptions(
+                                              decimal: true,
                                             ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          '${(_diffKwh ?? 0).toStringAsFixed(2)} kWh · '
-                                          '${(_diffKvah ?? 0).toStringAsFixed(2)} kVAh',
-                                          style: TextStyle(
-                                            fontSize: 12.5,
-                                            fontWeight: FontWeight.w700,
-                                            color: (_diffKwh ?? 0) < 0 ||
-                                                    (_diffKvah ?? 0) < 0
-                                                ? AppColors.danger
-                                                : AppColors.success,
-                                          ),
-                                        ),
-                                      ],
+                                        inputFormatters: [
+                                          AppInputFormatters.numeric,
+                                        ],
+                                        validator: _optionalNumberValidator,
+                                      ),
                                     ),
-                                    const SizedBox(height: 6),
-                                    Row(
-                                      children: [
-                                        Icon(
-                                          Icons.history,
-                                          size: 14,
-                                          color: AppColors.dim(context),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: Text(
-                                            _prevFetchFailed
-                                                ? 'Couldn\'t fetch previous reading — check your connection. Consumption shown here may be inaccurate.'
-                                                : 'Previous (auto, from DB): '
-                                                      '${_prevCumulativeKwh.toStringAsFixed(2)} kWh · '
-                                                      '${_prevCumulativeKvah.toStringAsFixed(2)} kVAh',
-                                            style: TextStyle(
-                                              fontSize: 11.5,
-                                              color: _prevFetchFailed
-                                                  ? AppColors.warningText
-                                                  : AppColors.dim(context),
-                                              fontWeight: _prevFetchFailed
-                                                  ? FontWeight.w600
-                                                  : FontWeight.w400,
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: AppTextField(
+                                        controller: _mdT4Ctrl,
+                                        label: 'MD T4 (kVA)',
+                                        hint: 'Phase 4',
+                                        prefixIcon: Icons.trending_up,
+                                        keyboardType:
+                                            TextInputType.numberWithOptions(
+                                              decimal: true,
                                             ),
-                                          ),
-                                        ),
-                                      ],
+                                        inputFormatters: [
+                                          AppInputFormatters.numeric,
+                                        ],
+                                        validator: _optionalNumberValidator,
+                                      ),
                                     ),
                                   ],
                                 ),
-                              ),
+                              ] else
+                                AppTextField(
+                                  controller: _mdRecordedCtrl,
+                                  label: 'MD Recorded (kVA) — optional',
+                                  hint: 'Leave blank if not available',
+                                  prefixIcon: Icons.trending_up,
+                                  keyboardType: TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
+                                  inputFormatters: [AppInputFormatters.numeric],
+                                  validator: _optionalNumberValidator,
+                                ),
                             ],
-                          ],
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 12),
-                      AppCard(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Power Quality',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: AppTextField(
-                                    controller: _rkvarhLagCtrl,
-                                    label: 'rkVARh (Lag)',
-                                    prefixIcon: Icons.warning_outlined,
-                                    keyboardType:
-                                        TextInputType.numberWithOptions(
-                                          decimal: true,
-                                        ),
-                                    inputFormatters: [AppInputFormatters.numeric],
-                                    validator: _optionalNumberValidator,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: AppTextField(
-                                    controller: _rkvarhLeadCtrl,
-                                    label: 'rkVARh (Lead)',
-                                    prefixIcon: Icons.check_circle_outline,
-                                    keyboardType:
-                                        TextInputType.numberWithOptions(
-                                          decimal: true,
-                                        ),
-                                    inputFormatters: [AppInputFormatters.numeric],
-                                    validator: _optionalNumberValidator,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            if (AppConfig.useMultiMd) ...[
+                      ],
+                      const SizedBox(height: AppSpacing.xxl),
+
+                      // ── Solar / Net Metering (only for solar sources) ──
+                      if (_showSolarEntry) ...[
+                        AppCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
                               Row(
                                 children: [
-                                  const Expanded(
-                                    child: Text(
-                                      'MD Recorded (kVA) — enter all 4 phases',
+                                  const Icon(
+                                    Icons.solar_power_outlined,
+                                    size: 18,
+                                    color: Color(0xFF059669),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  const Text(
+                                    'Solar / Net Metering',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.green.withValues(
+                                        alpha: 0.1,
+                                      ),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: const Text(
+                                      'OPTIONAL',
                                       style: TextStyle(
-                                        fontSize: 13,
+                                        fontSize: 10,
+                                        color: Colors.green,
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
                                   ),
-                                  if (_multiMdMax != null)
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 3,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: AppColors.primary.withValues(
-                                          alpha: 0.1,
-                                        ),
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                      child: Text(
-                                        'Max: ${_multiMdMax!.toStringAsFixed(1)}',
-                                        style: const TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w700,
-                                          color: AppColors.primary,
-                                        ),
-                                      ),
-                                    ),
                                 ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'For consumers with solar panels. Export = units fed '
+                                'back to grid. Generation = total panel output.',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Theme.of(
+                                    context,
+                                  ).textTheme.bodySmall?.color,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.withValues(alpha: 0.08),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: Colors.orange.withValues(
+                                      alpha: 0.25,
+                                    ),
+                                  ),
+                                ),
+                                child: const Text(
+                                  'Note: Record solar/export readings only on your '
+                                  'dedicated SOLAR meter. Do not enter generation '
+                                  'while a general (import) meter is selected.',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
                               ),
                               const SizedBox(height: 12),
                               Row(
                                 children: [
                                   Expanded(
                                     child: AppTextField(
-                                      controller: _mdT1Ctrl,
-                                      label: 'MD T1 (kVA)',
-                                      hint: 'Phase 1',
-                                      prefixIcon: Icons.trending_up,
+                                      controller: _exportKwhCtrl,
+                                      label: 'Export kWh',
+                                      hint: 'Grid export reading',
+                                      prefixIcon: Icons.solar_power_outlined,
                                       keyboardType:
                                           TextInputType.numberWithOptions(
                                             decimal: true,
@@ -901,10 +1184,10 @@ class ReadingEntryPageState extends State<ReadingEntryPage> {
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: AppTextField(
-                                      controller: _mdT2Ctrl,
-                                      label: 'MD T2 (kVA)',
-                                      hint: 'Phase 2',
-                                      prefixIcon: Icons.trending_up,
+                                      controller: _exportKvahCtrl,
+                                      label: 'Export kVAh',
+                                      hint: 'Optional',
+                                      prefixIcon: Icons.solar_power_outlined,
                                       keyboardType:
                                           TextInputType.numberWithOptions(
                                             decimal: true,
@@ -918,262 +1201,129 @@ class ReadingEntryPageState extends State<ReadingEntryPage> {
                                 ],
                               ),
                               const SizedBox(height: 12),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: AppTextField(
-                                      controller: _mdT3Ctrl,
-                                      label: 'MD T3 (kVA)',
-                                      hint: 'Phase 3',
-                                      prefixIcon: Icons.trending_up,
-                                      keyboardType:
-                                          TextInputType.numberWithOptions(
-                                            decimal: true,
-                                          ),
-                                      inputFormatters: [
-                                        AppInputFormatters.numeric,
-                                      ],
-                                      validator: _optionalNumberValidator,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: AppTextField(
-                                      controller: _mdT4Ctrl,
-                                      label: 'MD T4 (kVA)',
-                                      hint: 'Phase 4',
-                                      prefixIcon: Icons.trending_up,
-                                      keyboardType:
-                                          TextInputType.numberWithOptions(
-                                            decimal: true,
-                                          ),
-                                      inputFormatters: [
-                                        AppInputFormatters.numeric,
-                                      ],
-                                      validator: _optionalNumberValidator,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ] else
                               AppTextField(
-                                controller: _mdRecordedCtrl,
-                                label: 'MD Recorded (kVA) — optional',
-                                hint: 'Leave blank if not available',
-                                prefixIcon: Icons.trending_up,
+                                controller: _generationKwhCtrl,
+                                label: 'Total Generation kWh',
+                                hint: 'Total solar panel output',
+                                prefixIcon: Icons.bolt,
                                 keyboardType: TextInputType.numberWithOptions(
                                   decimal: true,
                                 ),
                                 inputFormatters: [AppInputFormatters.numeric],
                                 validator: _optionalNumberValidator,
                               ),
-                           ],
+                            ],
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: AppSpacing.xxl),
-
-                      // ── Solar / Net Metering (only for solar sources) ──
-                      if (_showSolarEntry) ...[
-                      AppCard(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                const Text(
-                                  'Solar / Net Metering',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const Spacer(),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.green.withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: const Text(
-                                    'OPTIONAL',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      color: Colors.green,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'For consumers with solar panels. Export = units fed '
-                              'back to grid. Generation = total panel output.',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
-                                    ?.color,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.orange.withValues(alpha: 0.08),
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(
-                                  color: Colors.orange.withValues(alpha: 0.25),
-                                ),
-                              ),
-                              child: const Text(
-                                'Note: Record solar/export readings only on your '
-                                'dedicated SOLAR meter. Do not enter generation '
-                                'while a general (import) meter is selected.',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: AppTextField(
-                                    controller: _exportKwhCtrl,
-                                    label: 'Export kWh',
-                                    hint: 'Grid export reading',
-                                    prefixIcon: Icons.solar_power_outlined,
-                                    keyboardType:
-                                        TextInputType.numberWithOptions(
-                                          decimal: true,
-                                        ),
-                                    inputFormatters: [
-                                      AppInputFormatters.numeric,
-                                    ],
-                                    validator: _optionalNumberValidator,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: AppTextField(
-                                    controller: _exportKvahCtrl,
-                                    label: 'Export kVAh',
-                                    hint: 'Optional',
-                                    prefixIcon: Icons.solar_power_outlined,
-                                    keyboardType:
-                                        TextInputType.numberWithOptions(
-                                          decimal: true,
-                                        ),
-                                    inputFormatters: [
-                                      AppInputFormatters.numeric,
-                                    ],
-                                    validator: _optionalNumberValidator,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            AppTextField(
-                              controller: _generationKwhCtrl,
-                              label: 'Total Generation kWh',
-                              hint: 'Total solar panel output',
-                              prefixIcon: Icons.bolt,
-                              keyboardType: TextInputType.numberWithOptions(
-                                decimal: true,
-                              ),
-                              inputFormatters: [AppInputFormatters.numeric],
-                              validator: _optionalNumberValidator,
-                            ),
-                          ],
-                        ),
-                      ),
                       ],
 
                       // ── Turbine generation (only for turbine sources) ──
                       if (_showTurbineEntry) ...[
-                      AppCard(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                const Text(
-                                  'Turbine Generation',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
+                        AppCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.air,
+                                    size: 18,
+                                    color: Color(0xFF0EA5E9),
                                   ),
-                                ),
-                                const Spacer(),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'For consumers with wind/small-hydro turbines. '
-                              'Generation subtracts from import for net billing.',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
-                                    ?.color,
+                                  const SizedBox(width: 8),
+                                  const Text(
+                                    'Turbine Generation',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(
+                                        0xFF0EA5E9,
+                                      ).withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(
+                                        AppSpacing.radiusMd,
+                                      ),
+                                    ),
+                                    child: const Text(
+                                      'OPTIONAL',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: Color(0xFF0EA5E9),
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                            const SizedBox(height: 10),
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.orange.withValues(alpha: 0.08),
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(
-                                  color: Colors.orange.withValues(alpha: 0.25),
-                                ),
-                              ),
-                              child: const Text(
-                                'Note: Record turbine generation only on your '
-                                'dedicated TURBINE meter. Do not enter it while '
-                                'a general (import) meter is selected.',
+                              const SizedBox(height: 4),
+                              Text(
+                                'For consumers with wind/small-hydro turbines. '
+                                'Generation subtracts from import for net billing.',
                                 style: TextStyle(
                                   fontSize: 11,
-                                  fontWeight: FontWeight.w500,
+                                  color: Theme.of(
+                                    context,
+                                  ).textTheme.bodySmall?.color,
                                 ),
                               ),
-                            ),
-                            const SizedBox(height: 12),
-                            AppTextField(
-                              controller: _turbineKwhCtrl,
-                              label: 'Turbine Generation kWh',
-                              hint: 'Total turbine output',
-                              prefixIcon: Icons.air,
-                              keyboardType: TextInputType.numberWithOptions(
-                                decimal: true,
+                              const SizedBox(height: 10),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.withValues(alpha: 0.08),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: Colors.orange.withValues(
+                                      alpha: 0.25,
+                                    ),
+                                  ),
+                                ),
+                                child: const Text(
+                                  'Note: Record turbine generation only on your '
+                                  'dedicated TURBINE meter. Do not enter it while '
+                                  'a general (import) meter is selected.',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
                               ),
-                              inputFormatters: [AppInputFormatters.numeric],
-                              validator: _optionalNumberValidator,
-                            ),
-                            const SizedBox(height: 12),
-                            AppTextField(
-                              controller: _turbineExportKwhCtrl,
-                              label: 'Turbine Export kWh',
-                              hint: 'Units fed back to grid',
-                              prefixIcon: Icons.sync,
-                              keyboardType: TextInputType.numberWithOptions(
-                                decimal: true,
+                              const SizedBox(height: 12),
+                              AppTextField(
+                                controller: _turbineKwhCtrl,
+                                label: 'Turbine Generation kWh',
+                                hint: 'Total turbine output',
+                                prefixIcon: Icons.air,
+                                keyboardType: TextInputType.numberWithOptions(
+                                  decimal: true,
+                                ),
+                                inputFormatters: [AppInputFormatters.numeric],
+                                validator: _optionalNumberValidator,
                               ),
-                              inputFormatters: [AppInputFormatters.numeric],
-                              validator: _optionalNumberValidator,
-                            ),
-                          ],
+                              const SizedBox(height: 12),
+                              AppTextField(
+                                controller: _turbineExportKwhCtrl,
+                                label: 'Turbine Export kWh',
+                                hint: 'Units fed back to grid',
+                                prefixIcon: Icons.sync,
+                                keyboardType: TextInputType.numberWithOptions(
+                                  decimal: true,
+                                ),
+                                inputFormatters: [AppInputFormatters.numeric],
+                                validator: _optionalNumberValidator,
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
                       ],
 
                       const SizedBox(height: AppSpacing.xxl),
@@ -1194,4 +1344,33 @@ class ReadingEntryPageState extends State<ReadingEntryPage> {
       ),
     );
   }
+}
+
+/// Classifies a meter's purpose so the reading form adapts its inputs.
+enum _MeterType {
+  grid(
+    'Grid Meter',
+    'Import & consumption readings',
+    Icons.grid_on_rounded,
+    AppColors.primary,
+  ),
+  solar(
+    'Solar Meter',
+    'Solar generation & export to grid',
+    Icons.solar_power_outlined,
+    Color(0xFF059669),
+  ),
+  turbine(
+    'Turbine Meter',
+    'Turbine generation & export to grid',
+    Icons.air,
+    Color(0xFF0EA5E9),
+  );
+
+  final String label;
+  final String subtitle;
+  final IconData icon;
+  final Color color;
+
+  const _MeterType(this.label, this.subtitle, this.icon, this.color);
 }
