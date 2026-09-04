@@ -57,7 +57,9 @@ class IndustryProfileModel {
   }
 
   Map<String, Object?> toMap() => {
-    'id': id,
+    // Empty/placeholder id: let the DB generate one (id uuid default gen_random_uuid()).
+    // A stored id (edit mode) is preserved so upsert on 'user_id' keeps it.
+    if (id.isNotEmpty) 'id': id,
     'user_id': userId,
     'industry_name': industryName,
     'tariff_category': tariffCategory,
