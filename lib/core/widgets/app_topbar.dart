@@ -5,6 +5,7 @@ import '../theme/app_spacing.dart';
 class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
   final String title;
   final String? subtitle;
+  final String? companyName;
   final Widget? leading;
   final List<Widget>? actions;
   final bool showSearch;
@@ -18,6 +19,7 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
     super.key,
     required this.title,
     this.subtitle,
+    this.companyName,
     this.leading,
     this.actions,
     this.showSearch = false,
@@ -46,6 +48,31 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
       ),
       child: Row(
         children: [
+          const Padding(
+            padding: EdgeInsets.only(left: AppSpacing.md),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.bolt_rounded, size: 22, color: AppColors.primary),
+                SizedBox(width: 6),
+                Text(
+                  'PowerEMS',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.primary,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            width: 1,
+            height: 26,
+            margin: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+            color: isDark ? AppColors.borderDark : AppColors.borderLight,
+          ),
           ?leading,
           if (onMenuTap != null)
             IconButton(
@@ -60,7 +87,18 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title, style: Theme.of(context).textTheme.titleLarge),
-                if (subtitle != null)
+                if (companyName != null && companyName!.isNotEmpty)
+                  Text(
+                    companyName!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.dim(context),
+                    ),
+                  )
+                else if (subtitle != null)
                   Text(
                     subtitle!,
                     style: TextStyle(

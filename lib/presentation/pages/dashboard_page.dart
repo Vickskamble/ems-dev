@@ -664,10 +664,15 @@ class _DashboardContentState extends State<_DashboardContent> {
       _selectedLogs.fold(0.0, (s, l) => s + (l.exportKwh ?? 0));
 
   bool get _hasTurbineData =>
-      AppConfig.hasTurbine && _selectedLogs.any((l) => (l.turbineKwh ?? 0) > 0);
+      AppConfig.hasTurbine &&
+      _selectedLogs.any((l) =>
+          (l.turbineKwh ?? 0) > 0 || (l.turbineExportKwh ?? 0) > 0);
 
   double get _totalTurbineGeneration =>
       _selectedLogs.fold(0.0, (s, l) => s + (l.turbineKwh ?? 0));
+
+  double get _totalTurbineExport =>
+      _selectedLogs.fold(0.0, (s, l) => s + (l.turbineExportKwh ?? 0));
 
   double get _solarSelfConsumptionPct {
     final gen = _totalGeneration;
@@ -1168,7 +1173,9 @@ class _DashboardContentState extends State<_DashboardContent> {
                 TrialKpiCard(
                   title: 'Turbine generation',
                   value: '${_totalTurbineGeneration.round()} kWh',
-                  sub: 'wind / small-hydro output',
+                  sub: _totalTurbineExport > 0
+                      ? 'export ${_totalTurbineExport.round()} · wind/small-hydro output'
+                      : 'wind / small-hydro output',
                   color: const Color(0xFF0EA5E9),
                   pct: _gridIndependencePct.clamp(0, 100),
                   badgeNew: true,

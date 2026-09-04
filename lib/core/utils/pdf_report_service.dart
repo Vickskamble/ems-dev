@@ -16,6 +16,7 @@ class PdfReportService {
     required List<EnergyLogEntity> logs,
     required String title,
     String? subtitle,
+    String? companyName,
     List<EnergyLogEntity>? ratchetLogs,
     double? facRate,
   }) async {
@@ -23,6 +24,7 @@ class PdfReportService {
       logs: logs,
       title: title,
       subtitle: subtitle,
+      companyName: companyName,
       ratchetLogs: ratchetLogs,
       facRate: facRate,
     );
@@ -36,6 +38,7 @@ class PdfReportService {
     required List<EnergyLogEntity> logs,
     required String title,
     String? subtitle,
+    String? companyName,
     List<EnergyLogEntity>? ratchetLogs,
     double? facRate,
   }) {
@@ -68,7 +71,24 @@ class PdfReportService {
             child: pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               children: [
-                pw.Text(title, style: pw.TextStyle(fontSize: 18)),
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  mainAxisSize: pw.MainAxisSize.min,
+                  children: [
+                    pw.Text(
+                      'PowerEMS  ·  $title',
+                      style: pw.TextStyle(fontSize: 18),
+                    ),
+                    if (companyName != null && companyName.isNotEmpty)
+                      pw.Text(
+                        'Prepared for $companyName',
+                        style: pw.TextStyle(
+                          fontSize: 9,
+                          color: PdfColors.grey700,
+                        ),
+                      ),
+                  ],
+                ),
                 pw.Text(
                   'Generated: ${DateTime.now().toString().substring(0, 16)}',
                   style: pw.TextStyle(fontSize: 9, color: PdfColors.grey700),
@@ -117,6 +137,13 @@ class PdfReportService {
             _costBreakdown(breakdown),
             pw.SizedBox(height: 16),
             _todDistribution(breakdown),
+            if (breakdown.totalGenerationKwh > 0 ||
+                breakdown.totalExportKwh > 0 ||
+                breakdown.totalTurbineKwh > 0 ||
+                breakdown.totalTurbineExportKwh > 0) ...[
+              pw.SizedBox(height: 16),
+              _renewableSection(breakdown),
+            ],
           ],
           // PAGE 5 · Recommendations and demand deep-dive
           if (intelligence != null) pw.NewPage(),
@@ -425,6 +452,34 @@ class PdfReportService {
         _infoRow(
           'Avg Unit Cost',
           'Rs. ${b.averageUnitCost.toStringAsFixed(2)}/billed unit',
+        ),
+      ],
+    );
+  }
+
+  static pw.Widget _renewableSection(BillBreakdown b) {
+    final entries = <(String, double)>[
+      ('Solar Generation', b.totalGenerationKwh),
+      ('Solar Export (to grid)', b.totalExportKwh),
+      ('Turbine Generation', b.totalTurbineKwh),
+      ('Turbine Export (to grid)', b.totalTurbineExportKwh),
+    ];
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Text(
+          'Renewable Generation & Export',
+          style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold),
+        ),
+        pw.SizedBox(height: 6),
+        for (final (label, value) in entries)
+          if (value > 0)
+            _infoRow(label, '${value.toStringAsFixed(0)} kWh'),
+        pw.SizedBox(height: 2),
+        pw.Text(
+          'Exported/generated units are netted against import in the '
+          'energy charge (net billing, same tariff).',
+          style: pw.TextStyle(fontSize: 7, color: PdfColors.grey600),
         ),
       ],
     );

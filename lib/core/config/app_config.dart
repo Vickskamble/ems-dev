@@ -281,6 +281,10 @@ class AppConfig {
   /// One of: 'none' | 'solar' | 'turbine' | 'solar+turbine'.
   static String energySources = 'none';
 
+  /// Client's company / business name (from the industry profile). Shown in
+  /// the app header, reports and PDF exports.
+  static String companyName = '';
+
   /// MD mode selected in the industry profile: 'single' | 'multi'.
   static String mdMode = 'single';
 
@@ -336,11 +340,13 @@ class AppConfig {
   static void applyIndustryProfile({
     required String energySources,
     required String mdMode,
+    String? companyName,
     String? tariffCategory,
     String? tariffVersion,
     double? contractDemandKva,
   }) {
     AppConfig.energySources = energySources;
+    AppConfig.companyName = companyName ?? '';
     AppConfig.mdMode = mdMode;
     AppConfig.hasIndustryProfile = true;
     AppConfig.useMultiMd = mdMode == 'multi';

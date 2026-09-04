@@ -329,6 +329,7 @@ class _AnalysisContentState extends State<_AnalysisContent> {
               title: 'Analysis Report',
               subtitle:
                   '${_filtered.length} reading(s) — ${_selection.label}',
+              companyName: AppConfig.companyName,
               ratchetLogs: _entities,
               facRate: _filtered.isNotEmpty
                   ? AppConfig.facRateForMonth(
@@ -447,6 +448,63 @@ class _AnalysisContentState extends State<_AnalysisContent> {
             style: TextStyle(fontSize: 12, color: dim),
           ),
           const Divider(height: 24),
+          if (AppConfig.hasSolar || AppConfig.hasTurbine) ...[
+            const Text(
+              'Renewable Generation & Export',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 6),
+            for (final (label, value, color) in [
+              if (AppConfig.hasSolar && breakdown.totalGenerationKwh > 0)
+                (
+                  'Solar Generation',
+                  breakdown.totalGenerationKwh,
+                  AppColors.kpiEfficiency,
+                ),
+              if (AppConfig.hasSolar && breakdown.totalExportKwh > 0)
+                (
+                  'Solar Export (to grid)',
+                  breakdown.totalExportKwh,
+                  AppColors.kpiSavings,
+                ),
+              if (AppConfig.hasTurbine && breakdown.totalTurbineKwh > 0)
+                (
+                  'Turbine Generation',
+                  breakdown.totalTurbineKwh,
+                  AppColors.kpiEfficiency,
+                ),
+              if (AppConfig.hasTurbine && breakdown.totalTurbineExportKwh > 0)
+                (
+                  'Turbine Export (to grid)',
+                  breakdown.totalTurbineExportKwh,
+                  AppColors.kpiSavings,
+                ),
+            ]) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 3),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        label,
+                        style: const TextStyle(fontSize: 12),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Text(
+                      '${value.toStringAsFixed(0)} kWh',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: color,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            const Divider(height: 20),
+          ],
           for (final (label, amount, color) in rows)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 3),

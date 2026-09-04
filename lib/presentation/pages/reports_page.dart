@@ -280,6 +280,7 @@ class _ReportsContentState extends State<_ReportsContent> {
                         subtitle:
                             '${entities.length} reading(s) — '
                             '${_selection.label}${_meter != null ? ', $_meter' : ''}',
+                        companyName: AppConfig.companyName,
                         ratchetLogs: _allEntities,
                         facRate: entities.isNotEmpty
                             ? AppConfig.facRateForMonth(
@@ -457,6 +458,13 @@ class _ReportsContentState extends State<_ReportsContent> {
         _buildEnergyAnalysis(entityLogs),
         const SizedBox(height: AppSpacing.lg),
         _buildCostBreakdown(currencyFmt, breakdown),
+        if (breakdown.totalGenerationKwh > 0 ||
+            breakdown.totalExportKwh > 0 ||
+            breakdown.totalTurbineKwh > 0 ||
+            breakdown.totalTurbineExportKwh > 0) ...[
+          const SizedBox(height: AppSpacing.lg),
+          _buildRenewableSummary(breakdown),
+        ],
         const SizedBox(height: AppSpacing.lg),
         _buildDemandPfAnalysis(currencyFmt, breakdown),
         const SizedBox(height: AppSpacing.lg),
@@ -1699,6 +1707,69 @@ getTooltipItem: (group, groupIndex, rod, rodIndex) {
                       AppColors.kpiEfficiency,
                     ),
                   ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRenewableSummary(BillBreakdown breakdown) {
+    final entries = <(String, String, Color)>[
+      if (breakdown.totalGenerationKwh > 0)
+        (
+          'Solar Generation',
+          '${breakdown.totalGenerationKwh.toStringAsFixed(0)} kWh',
+          AppColors.kpiEfficiency,
+        ),
+      if (breakdown.totalExportKwh > 0)
+        (
+          'Solar Export',
+          '${breakdown.totalExportKwh.toStringAsFixed(0)} kWh',
+          AppColors.kpiSavings,
+        ),
+      if (breakdown.totalTurbineKwh > 0)
+        (
+          'Turbine Generation',
+          '${breakdown.totalTurbineKwh.toStringAsFixed(0)} kWh',
+          AppColors.kpiEfficiency,
+        ),
+      if (breakdown.totalTurbineExportKwh > 0)
+        (
+          'Turbine Export',
+          '${breakdown.totalTurbineExportKwh.toStringAsFixed(0)} kWh',
+          AppColors.kpiSavings,
+        ),
+    ];
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Renewable Generation & Export',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Solar & wind output fed to the grid — reduces net billed units',
+            style: TextStyle(fontSize: 12, color: AppColors.dim(context)),
+          ),
+          const Divider(height: 24),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final columns = entries.length > 2 && constraints.maxWidth < 420
+                  ? 2
+                  : entries.length;
+              final width =
+                  (constraints.maxWidth - 12 * (columns - 1)) / columns;
+              return Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  for (final (label, value, color) in entries)
+                    SizedBox(width: width, child: _summaryItem(label, value, color)),
                 ],
               );
             },

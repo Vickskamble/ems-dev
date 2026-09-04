@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../core/config/app_config.dart';
 import '../../core/utils/reading_reminder.dart';
 import '../../core/widgets/app_shell.dart';
 import '../../core/widgets/month_filter_bar.dart';
@@ -185,6 +186,7 @@ class _MainNavigationHubState extends State<MainNavigationHub> {
 
     return AppShell(
       title: hubTitle,
+      companyName: AppConfig.companyName,
       selectedIndex: _sidebarIndex,
       onItemSelected: _onItemTapped,
       body: IndexedStack(

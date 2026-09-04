@@ -127,6 +127,7 @@ class _IndustryProfilePageState extends State<IndustryProfilePage> {
       AppConfig.applyIndustryProfile(
         energySources: _energySources,
         mdMode: _mdMode,
+        companyName: _industryNameCtrl.text.trim(),
         tariffCategory: _tariffCategory,
         tariffVersion: _tariffVersion,
         contractDemandKva: contractDemand,

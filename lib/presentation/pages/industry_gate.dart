@@ -38,6 +38,7 @@ class _IndustryGateState extends State<IndustryGate> {
         AppConfig.applyIndustryProfile(
           energySources: profile.energySources,
           mdMode: profile.mdMode,
+          companyName: profile.industryName,
           tariffCategory: profile.tariffCategory,
           tariffVersion: profile.tariffVersion,
           contractDemandKva: profile.contractDemandKva,

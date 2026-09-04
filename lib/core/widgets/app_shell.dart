@@ -7,6 +7,7 @@ import 'app_topbar.dart';
 class AppShell extends StatefulWidget {
   final String title;
   final String? subtitle;
+  final String? companyName;
   final int selectedIndex;
   final ValueChanged<int> onItemSelected;
   final Widget body;
@@ -24,6 +25,7 @@ class AppShell extends StatefulWidget {
     super.key,
     required this.title,
     this.subtitle,
+    this.companyName,
     required this.selectedIndex,
     required this.onItemSelected,
     required this.body,
@@ -61,7 +63,7 @@ class _AppShellState extends State<AppShell> {
             onPressed: () => Scaffold.of(context).openDrawer(),
           ),
         ),
-        title: Text(widget.title),
+        title: _buildMobileTitle(),
         actions: [_buildUserChip(context, compact: true), ...?widget.actions],
       ),
       drawer: Drawer(
@@ -152,6 +154,42 @@ class _AppShellState extends State<AppShell> {
       ),
       body: widget.body,
       floatingActionButton: widget.floatingActionButton,
+    );
+  }
+
+  /// Mobile AppBar title: PowerEMS brand + page title + client company name.
+  Widget _buildMobileTitle() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.bolt_rounded,
+                size: 18, color: AppColors.primary),
+            const SizedBox(width: 4),
+            Text(
+              widget.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            ),
+          ],
+        ),
+        if (widget.companyName != null && widget.companyName!.isNotEmpty)
+          Text(
+            widget.companyName!,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 11,
+              color: AppColors.dim(context),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+      ],
     );
   }
 
@@ -307,6 +345,7 @@ class _AppShellState extends State<AppShell> {
                 AppTopBar(
                   title: widget.title,
                   subtitle: widget.subtitle,
+                  companyName: widget.companyName,
                   onMenuTap: () =>
                       setState(() => _sidebarCollapsed = !_sidebarCollapsed),
                   onNotificationsTap: widget.onNotificationsTap,
