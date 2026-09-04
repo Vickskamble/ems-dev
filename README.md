@@ -12,6 +12,7 @@ A professional Flutter-based Energy Management System for MSME industries. Helps
 - Bill Forecast (projected month-end bill / units)
 - Charts: Demand Trend (kVA) + Monthly Consumption
 - Month-over-month comparison with savings badge
+- Renewable visibility: Solar Generation and Turbine Generation / Turbine Export KPIs shown when renewable readings exist
 
 ### Bill Analysis
 - Full bill breakdown: Energy Charges, Demand Charges, FAC, Wheeling, Duty, Taxes, PF Rebate/Surcharge, Subsidy
@@ -29,6 +30,11 @@ Every metric includes business meaning:
 
 ### Reading Entry
 - Meter dropdown with live meter list
+- **Meter-type-aware form** — the meter name auto-classifies into a type:
+  - **Grid** meters (default) → grid inputs only (Energy Readings kWh/kVAh, Power Quality rkVARh, Max Demand)
+  - **Solar** meters (name contains "solar") → Solar / Net Metering card (Generation, Export kWh/kVAh)
+  - **Turbine** meters (name contains "turbine"/"wind") → Turbine Generation card (Generation, Export)
+- Colored type banner under the meter selector (Grid — import / Solar & Turbine — renewable)
 - Auto-fetch of previous kWh / kVAh readings
 - Validation: current ≥ previous, no future dates, duplicate-reading guard (±2 min)
 - PF (< 0.95) and MD (≥ 95% of contract) alerts on save
@@ -65,7 +71,7 @@ Every metric includes business meaning:
 | Screen | Purpose |
 |--------|---------|
 | Dashboard | KPI cards, alerts, forecast, insights, recommendations, charts |
-| Reading Entry | Manual meter reading form with auto-fetch of previous readings |
+| Reading Entry | Meter-type-aware reading form (Grid / Solar / Turbine fields), auto-fetch of previous readings |
 | Analysis | Bill breakdown, trends, MD breach prediction, anomalies, reading log edit/delete |
 | Reports | Executive summary, bill accuracy, history, PDF/CSV export, Excel import |
 | Meter Management | Add/edit/delete meters with contract demand, CT/PT, site config |
