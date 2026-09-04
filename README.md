@@ -1,6 +1,6 @@
 # PowerEMS — Energy Management System
 
-A professional Flutter-based Energy Management System for MSME industries. Helps small and medium enterprises understand electricity bills, perform accurate cost analysis, identify savings opportunities, and make better energy decisions.
+A professional Flutter-based Energy Management System for SME industries. Helps small and medium enterprises understand electricity bills, perform accurate cost analysis, identify savings opportunities, and make better energy decisions.
 
 ## Features
 
